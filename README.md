@@ -1,2 +1,2 @@
-sudo apt-get install gtkwave
+sudo apt-get install gtkwave iverilog
 
