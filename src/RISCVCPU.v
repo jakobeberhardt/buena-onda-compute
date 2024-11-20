@@ -27,8 +27,9 @@ module RISCVCPU (
     // Bypass signals
     wire bypassAfromMEM, bypassAfromALUinWB, bypassBfromMEM, bypassBfromALUinWB;
     wire bypassAfromLDinWB, bypassBfromLDinWB;
+    wire bypassDecodeAfromWB, bypassDecodeBfromWB;
     // Stall signal
-    wire stall;
+    wire stall; 
 
     // Assignments for pipeline register fields
     assign IFIDrs1  = IFIDIR[19:15];          // rs1 field
@@ -50,6 +51,9 @@ module RISCVCPU (
     assign bypassBfromALUinWB = (IDEXrs2 == MEMWBrd) && (IDEXrs2 != 0) && ((MEMWBop == ALUopR) || (MEMWBop == ALUopI));
     assign bypassAfromLDinWB = (IDEXrs1 == MEMWBrd) && (IDEXrs1 != 0) && (MEMWBop == LW);
     assign bypassBfromLDinWB = (IDEXrs2 == MEMWBrd) && (IDEXrs2 != 0) && (MEMWBop == LW);
+
+    assign bypassDecodeAfromWB = (IFIDrs1 == MEMWBrd) && (IFIDrs1 != 0) && ((MEMWBop == ALUopR) || (MEMWBop == ALUopI) || (MEMWBop == LW));
+    assign bypassDecodeBfromWB = (IFIDrs2 == MEMWBrd) && (IFIDrs2 != 0) && ((MEMWBop == ALUopR) || (MEMWBop == ALUopI) || (MEMWBop == LW));
 
     // Stall signal assignment
     assign stall = (MEMWBop == LW) && (
@@ -83,7 +87,7 @@ module RISCVCPU (
 
         // Initialize registers to their indices to avoid undefined states
         for (i = 0; i <= 31; i = i + 1) begin
-            Regs[i] = i;
+            Regs[i] = 2;
         end
     end
 
@@ -94,9 +98,9 @@ module RISCVCPU (
             IFIDIR <= IMemory[PC >> 2];
             PC     <= PC + 4;
 
-            // Decode Stage
-            IDEXA  <= Regs[IFIDrs1];
-            IDEXB  <= Regs[IFIDrs2];
+            // Decode Stage with added bypassing from WB stage
+            IDEXA  <= bypassDecodeAfromWB ? MEMWBValue : Regs[IFIDrs1];
+            IDEXB  <= bypassDecodeBfromWB ? MEMWBValue : Regs[IFIDrs2];
             IDEXIR <= IFIDIR; // Pass Instruction Register
 
             // Execute Stage
