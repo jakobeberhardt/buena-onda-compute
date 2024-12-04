@@ -103,7 +103,7 @@ module RISCVCPU (
 
         // Initialize registers to their indices to avoid undefined states
         for (i = 0; i <= 31; i = i + 1) begin
-            Regs[i] = 2;
+            Regs[i] = i;
         end
     end
 
@@ -114,9 +114,10 @@ module RISCVCPU (
             if (~takebranch) begin
                 IFIDIR <= IMemory[PC >> 2];
                 PC     <= PC + 4;
+
             end else begin
                 IFIDIR <= NOP;
-                PC     <= PC + branch_offset;
+                PC     <= (PC - 4) + branch_offset;
             end
 
             // Decode Stage with added bypassing from WB stage
