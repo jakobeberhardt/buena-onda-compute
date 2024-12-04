@@ -19,7 +19,7 @@ module RISCVCPU (
 
     // Wire Definitions
     wire [4:0]  IFIDrs1, IFIDrs2, IDEXrs1, IDEXrs2, EXMEMrd, MEMWBrd; // Register fields
-    wire [6:0]  IDEXop, EXMEMop, MEMWBop;  // Opcode fields
+    wire [6:0]  IFIDop, IDEXop, EXMEMop, MEMWBop;  // Opcode fields
     wire [31:0] Ain, Bin;                   // ALU inputs
     wire [2:0]  IDEXfunct3;                 // funct3 field
     wire [6:0]  IDEXfunct7;                 // funct7 field
@@ -31,7 +31,11 @@ module RISCVCPU (
     // Stall signal
     wire stall; 
 
+    // Take Branch signal
+    wire takebranch;
+
     // Assignments for pipeline register fields
+    assign IFIDop   = IFIDIR[6:0];
     assign IFIDrs1  = IFIDIR[19:15];          // rs1 field
     assign IFIDrs2  = IFIDIR[24:20];          // rs2 field
     assign IDEXrs1  = IDEXIR[19:15];          // rs1 field in IDEX
@@ -60,6 +64,18 @@ module RISCVCPU (
         (((IDEXop == LW) || (IDEXop == SW)) && (IDEXrs1 == MEMWBrd)) || // Stall for address calculation
         (((IDEXop == ALUopR) || (IDEXop == ALUopI)) && ((IDEXrs1 == MEMWBrd) || (IDEXrs2 == MEMWBrd))) // ALU use
     );
+
+    // Decode stage register values, possibly bypassed
+    wire [31:0] DecodeA, DecodeB;
+    assign DecodeA = bypassDecodeAfromWB ? MEMWBValue : Regs[IFIDrs1];
+    assign DecodeB = bypassDecodeBfromWB ? MEMWBValue : Regs[IFIDrs2];
+
+    // Take branch signal
+    assign takebranch = (IFIDop == BEQ) && (DecodeA == DecodeB);
+
+    // Branch offset calculation
+    wire [31:0] branch_offset;
+    assign branch_offset = {{20{IFIDIR[31]}}, IFIDIR[31], IFIDIR[7], IFIDIR[30:25], IFIDIR[11:8], 1'b0};
 
     // ALU Inputs with bypasses
     assign Ain = bypassAfromMEM ? EXMEMALUOut :
@@ -95,12 +111,17 @@ module RISCVCPU (
     always @(posedge clock) begin
         if (~stall) begin
             // Fetch Stage
-            IFIDIR <= IMemory[PC >> 2];
-            PC     <= PC + 4;
+            if (~takebranch) begin
+                IFIDIR <= IMemory[PC >> 2];
+                PC     <= PC + 4;
+            end else begin
+                IFIDIR <= NOP;
+                PC     <= PC + branch_offset;
+            end
 
             // Decode Stage with added bypassing from WB stage
-            IDEXA  <= bypassDecodeAfromWB ? MEMWBValue : Regs[IFIDrs1];
-            IDEXB  <= bypassDecodeBfromWB ? MEMWBValue : Regs[IFIDrs2];
+            IDEXA  <= DecodeA;
+            IDEXB  <= DecodeB;
             IDEXIR <= IFIDIR; // Pass Instruction Register
 
             // Execute Stage

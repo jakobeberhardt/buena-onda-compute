@@ -9,7 +9,7 @@ GTKWAVE    = gtkwave
 SRC        = RISCVCPU.v
 
 # Testbenches
-TB_STANDARD   = RISCVCPU_tb.v
+TB_STANDARD   = RISCVCPU_tb_hazard.v
 TB_TESTCASES  = RISCVCPU_test.v
 
 # Output executable names
@@ -29,6 +29,11 @@ build: $(SRC)
 wave: $(OUT_STANDARD).vcd
 	@echo "Running standard testbench and opening GTKWave..."
 	$(GTKWAVE) $(OUT_STANDARD).vcd &
+
+run: build
+	$(IVERILOG) -o $(OUT_STANDARD) $(TB_STANDARD) $(SRC) && \
+	$(VVP) $(OUT_STANDARD)
+
 
 $(OUT_STANDARD).vcd: $(SRC) $(TB_STANDARD)
 	$(IVERILOG) -o $(OUT_STANDARD) $(TB_STANDARD) $(SRC)

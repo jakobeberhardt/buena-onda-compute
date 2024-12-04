@@ -32,13 +32,13 @@ module RISCVCPU_tb;
         // Optionally, print the final values of the data memory
         // For example, print the first 10 memory locations
         $display("Final Data Memory Values:");
-        for (i = 0; i < 10; i = i + 1) begin
+        for (i = 0; i < 5; i = i + 1) begin
             $display("DMemory[%0d] = %0d (0x%0h)", i, uut.DMemory[i], uut.DMemory[i]);
         end
 
         // Optionally, print the final values of the registers
         $display("Final Register Values:");
-        for (i = 0; i <= 31; i = i + 1) begin
+        for (i = 0; i <= 10; i = i + 1) begin
             $display("x%0d = %0d (0x%0h)", i, uut.Regs[i], uut.Regs[i]);
         end
 
