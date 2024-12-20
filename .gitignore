@@ -2,3 +2,7 @@
 *.vcd
 patterson.pdf
 image.png
+ModelSimSetup-20.1.1.720-linux.run
+.vscode/settings.json
+transcript
+vsim.wlf

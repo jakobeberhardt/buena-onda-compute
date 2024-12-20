@@ -1,0 +1,69 @@
+# Makefile for RISCVCPU project
+
+# Compiler and tools
+IVERILOG   := iverilog
+VVP        := vvp
+GTKWAVE    := gtkwave
+
+# Directories
+SRC_DIR    := src
+TB_DIR     := testbench
+BUILD_DIR  := build
+
+# Source files
+SRC        := $(SRC_DIR)/RISCVCPU.v
+
+# Testbenches
+TB_STANDARD   := $(TB_DIR)/RISCVCPU_tb_hazard.v
+TB_TESTCASES  := $(TB_DIR)/RISCVCPU_test.v
+
+# Output executable names
+OUT_STANDARD  := $(BUILD_DIR)/RISCVCPU_tb
+OUT_TESTCASES := $(BUILD_DIR)/RISCVCPU_test
+
+# Default target: Compile the project
+.PHONY: all compile run wave test clean
+all: compile
+
+# Ensure build directory exists using order-only prerequisites
+$(BUILD_DIR):
+	@mkdir -p $(BUILD_DIR)
+
+# Compile the project (syntax check of RISCVCPU module)
+compile: | $(BUILD_DIR)
+	@echo "Compiling RISCVCPU module..."
+	$(IVERILOG) -o /dev/null -s RISCVCPU $(SRC)
+	@echo "Compilation complete."
+
+# Run the standard testbench and open GTKWave
+wave: $(OUT_STANDARD).vcd
+	@echo "Opening GTKWave with standard testbench waveform..."
+	$(GTKWAVE) $(OUT_STANDARD).vcd &
+
+# Run the standard testbench
+run: $(OUT_STANDARD).vcd
+	@echo "Running standard testbench..."
+	$(VVP) $(OUT_STANDARD)
+
+# Generate VCD for standard testbench
+$(OUT_STANDARD).vcd: $(SRC) $(TB_STANDARD)
+	@echo "Compiling and running standard testbench..."
+	$(IVERILOG) -o $(OUT_STANDARD) $(TB_STANDARD) $(SRC)
+	$(VVP) $(OUT_STANDARD)
+
+# Run the testcases testbench
+test: $(OUT_TESTCASES).vcd
+	@echo "Running testcases testbench..."
+	$(VVP) $(OUT_TESTCASES)
+
+# Generate VCD for testcases testbench
+$(OUT_TESTCASES).vcd: $(SRC) $(TB_TESTCASES)
+	@echo "Compiling and running testcases testbench..."
+	$(IVERILOG) -o $(OUT_TESTCASES) $(TB_TESTCASES) $(SRC)
+	$(VVP) $(OUT_TESTCASES)
+
+# Clean up generated files
+clean:
+	@echo "Cleaning up build artifacts..."
+	rm -rf $(BUILD_DIR)/*
+	@echo "Cleaned up generated files."
