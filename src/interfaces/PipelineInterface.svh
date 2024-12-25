@@ -20,6 +20,8 @@ typedef struct packed {
     logic [4:0]  rd;
     logic [2:0]  funct3;
     logic [6:0]  funct7;
+    //immidiate i, used in JALR
+    logic [31:0] imm_i;
 } id_ex_bus_t;
 
 typedef struct packed {

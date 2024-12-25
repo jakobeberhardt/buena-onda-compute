@@ -1,7 +1,7 @@
-`define DEBUG 0  // Set to 1 to enable debug prints, 0 to disable
+`define DEBUG 1  // Set to 1 to enable debug prints, 0 to disable
 `timescale 1ns/1ps
 
-module RISCVCPU_tb_load_hazard;
+module RISCVCPU_tb_debug;
 
     // Clock and Reset Signals
     logic clock;
@@ -32,28 +32,21 @@ module RISCVCPU_tb_load_hazard;
             dut.imem.IMem[i] = 32'h00000013; // default = NOP
         end
 
-        // Load DMem
-        $readmemh("testbench/data/dmem.dat", dut.dmem.DMem);
+        dut.regfile.Regs[2] = 10; // x5 = 10
 
         // -- Program: place instructions in IMem --
-        // instructions to test load hazard
-        dut.imem.IMem[0] = 32'h00002083; // lw x1, 0(x0)
-        dut.imem.IMem[1] = 32'h00108133; // add  x2, x1, x1
-        dut.imem.IMem[2] = 32'h00000013; // NOP
-        dut.imem.IMem[3] = 32'h00202223; // sw   x2, 4(x0)
-        dut.imem.IMem[4] = 32'h00402183; // lw   x3, 4(x0)
-        dut.imem.IMem[5] = 32'h00118233; // add  x4, x3, x1
-        dut.imem.IMem[6] = 32'h00402423; // sw   x4, 8(x0) 
-        dut.imem.IMem[7] = 32'h00c00293; // addi x5, x0, 12
-        dut.imem.IMem[8] = 32'h0052a023; // sw x5, 0(x5)
-        dut.imem.IMem[9] = 32'h0002a303; // lw x6, 0(x5)
-        dut.imem.IMem[10] = 32'h00632223; // sw x6, 4(x6)
-        dut.imem.IMem[11] = 32'h00000013;
-
-        dut.dmem.DMem[0] = 32'h00000005; // DMEM[0] = 5
+        dut.imem.IMem[0] = 32'h00a00093; // addi x1, x0, 10
+        dut.imem.IMem[1] = 32'h00208a63; // beq x1, x2, 20
+        dut.imem.IMem[2] = 32'h00a102e7; // jalr x5, 10(x2)
+        dut.imem.IMem[3] = 32'h00300113; // addi x2, x0, 3
+        dut.imem.IMem[4] = 32'h002081B3; // add  x3, x1, x2
+        dut.imem.IMem[5] = 32'h00900093; // addi x1, x0, 9
+        dut.imem.IMem[6] = 32'h00000013; // NOP
+        dut.imem.IMem[7] = 32'h00412303; // lw   x6, 4(x2)
         
-        
-        
+        // Load DMem
+        //$readmemh("testbench/data/dmem.dat", dut.dmem.DMem);
+        dut.dmem.DMem[0] = 10;
 
     end
 
@@ -68,7 +61,7 @@ module RISCVCPU_tb_load_hazard;
         reset = 0;
 
         // Run Simulation for Sufficient Cycles to Execute Instructions
-        repeat (20) @(posedge clock); 
+        repeat (12) @(posedge clock); 
         
 
         // Display Register Values After Execution
@@ -83,61 +76,17 @@ module RISCVCPU_tb_load_hazard;
         end
 
 
+        //$display("DMEM[0] got %0d, expected 15", dut.dmem.DMem[1]);
+
         // Verify Key Registers
-        check_results();
+        // check_results();
 
         // End Simulation
         $finish;
     end
 
 
-     task automatic check_results();
-        int pass_count = 0;
-        int fail_count = 0;
 
-        // We'll check only the registers we care about:
-        // x1=5, x2=10, x3=10, x4=15, x5=15
-        // Also check DMEM[0] == 5, DMEM[1] == 10, DMEM[2] == 15
-
-        check_reg(1,   5);
-        check_reg(2,   10);
-        check_reg(3,   10);
-        check_reg(4,   15);
-        check_reg(5,    12);
-        check_reg(6,   12);
-
-        check_dmem(0, 5);
-        check_dmem(1, 10);
-        check_dmem(2, 15);
-        check_dmem(3, 12);
-        check_dmem(4, 12);
-
-        if (fail_count == 0)
-            $display("[TEST PASS] All checks passed!");
-        else
-            $display("[TEST FAIL] %0d passes, %0d fails.", pass_count, fail_count);
-    endtask
-
-    task check_dmem(input int addr, input int expected);
-        if (dut.dmem.DMem[addr] == expected) begin
-            $display("DMEM[%0d] PASS: got %0d, expected %0d", 
-                     addr, dut.dmem.DMem[addr], expected);
-        end else begin
-            $display("DMEM[%0d] FAIL: got %0d, expected %0d", 
-                     addr, dut.dmem.DMem[addr], expected);
-        end
-    endtask
-
-    // Helper task to check a single register
-    task check_reg(input int regnum, input int expected);
-        if (dut.regfile.Regs[regnum] == expected) begin
-            $display("x%0d PASS: got %0d, expected %0d", 
-                     regnum, dut.regfile.Regs[regnum], expected);
-        end else begin
-            $display("x%0d FAIL: got %0d, expected %0d", 
-                     regnum, dut.regfile.Regs[regnum], expected);
-        end
-    endtask
 
     // Always Block to Monitor and Display Cycle Information
     always @(posedge clock) begin

@@ -1,4 +1,4 @@
-
+`define DEBUG 0  // Set to 1 to enable debug prints, 0 to disable
 `include "utils/Opcodes.sv"
 `include "../../interfaces/PipelineInterface.svh"
 
@@ -28,25 +28,17 @@ module RegFile(
         Regs[0] <= 0;
     end
 
-    always_comb begin
-        if (((mem_wb_bus_in.opcode == LW) || (mem_wb_bus_in.opcode == ALUopR) || (mem_wb_bus_in.opcode == ALUopI))
-            && (mem_wb_bus_in.rd != 0)) begin
-            $display("Time: %0t | DEBUG: Writing to register %0d with value %0d", $time, mem_wb_bus_in.rd, mem_wb_bus_in.wb_value);
-            
+    always @(posedge clock) begin
+        if (`DEBUG) begin
+            if (((mem_wb_bus_in.opcode == LW) || (mem_wb_bus_in.opcode == ALUopR) || (mem_wb_bus_in.opcode == ALUopI))
+                && (mem_wb_bus_in.rd != 0)) begin
+                $display("Time: %0t | DEBUG: Writing to register %0d with value %0d", $time, mem_wb_bus_in.rd, mem_wb_bus_in.wb_value);      
+            end
         end
-        
     end
 
 
     assign regfile_out_rs1 = Regs[rs1_idx];
     assign regfile_out_rs2 = Regs[rs2_idx];
-
-    // Debugging
-    always_comb begin
-        $display("RegFile----------------------------");
-        $display("Time: %0t | DEBUG: regfile_out_rs1 = %0d", $time, regfile_out_rs1);
-        $display("Time: %0t | DEBUG: regfile_out_rs2 = %0d", $time, regfile_out_rs2);
-        $display("RegFile----------------------------");
-    end
 
 endmodule

@@ -45,13 +45,16 @@ module RISCVCPU(
         .rs2_idx(id_ex_bus_in.rs2)
     );
 
+    logic [31:0] JalAddr;
     // Instantiate pipeline stages
     IF if_stage(
         .clock(clock),
         .reset(reset),
         .stall(ctrl_signals.stall),
         .takebranch(ctrl_signals.takebranch),
-        .branch_offset(id_ex_bus_out.branch_offset),
+        .branch_offset(id_ex_bus_in.branch_offset),
+        .id_ex_bus_in(id_ex_bus_in),
+        .JalAddr(JalAddr),
         .if_id_bus_out(if_id_bus_in)
     );
 
@@ -111,10 +114,11 @@ module RISCVCPU(
     );
 
     ControlUnit control_unit (
-        .id_ex_bus_in(id_ex_bus_out),
-        .ex_mem_bus_in(ex_mem_bus_out),
-        .mem_wb_bus_in(mem_wb_bus_out),
-        .takebranch(takebranch)
+        .id_ex_bus_in(id_ex_bus_in),
+        .ex_mem_bus_in(ex_mem_bus_in),
+        .mem_wb_bus_in(mem_wb_bus_in),
+        .takebranch(takebranch),
+        .JalAddr(JalAddr)
     );
 
     HazardUnit hazard_unit(

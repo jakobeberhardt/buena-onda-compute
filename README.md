@@ -29,16 +29,20 @@ https://luplab.gitlab.io/rvcodecjs/
 
 
 ## TODO
-- Make exhaustive test cases
-- Test branch Instructions
-- Handle latency if branch depends on load
-- Look into why memwwb gives x in some special cases
 - Complete and test full ISA
+- Make MUL and Mem Instructions take multiple cycles
 - Store buffer
-- Cache
-- Virtual Memory 
+- Cache (Icache and Dcache)
+- Exception
+- Virtual Memory(ITlb and DTlb)
 - Rob
 - Branch Predictor
 - OoO
+
+# Code Improvement, works but coding style code be improved:
+- Where and how JALR Address is calculated
+- Bypassing inside control unit? Works perfectly but..??
+- Setting to much stuff to zero in PipelineRegs
+- The whole "BypassRs2SW(BValue)" Used in EX
 
 

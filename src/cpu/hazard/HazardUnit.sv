@@ -12,12 +12,16 @@ module HazardUnit(
 );
 
     logic load_use_hazard;
+    logic stall_for_branch_jalr;
     always_comb begin
         load_use_hazard = (ex_mem_bus_in.opcode == LW) && (
             (((id_ex_bus_in.opcode == LW) || (id_ex_bus_in.opcode == SW)) && (id_ex_bus_in.rs1 == ex_mem_bus_in.rd)) ||
             (((id_ex_bus_in.opcode == ALUopR) || (id_ex_bus_in.opcode == ALUopI)) && 
-             ((id_ex_bus_in.rs1 == ex_mem_bus_in.rd) || (id_ex_bus_in.rs2 == ex_mem_bus_in.rd)))
+             ((id_ex_bus_in.rs1 == ex_mem_bus_in.rd) || (id_ex_bus_in.rs2 == ex_mem_bus_in.rd))) ||
+            ((id_ex_bus_in.opcode == JALR) && (id_ex_bus_in.rs1 == ex_mem_bus_in.rd)) ||
+            ((id_ex_bus_in.opcode == BEQ) && ((id_ex_bus_in.rs1 == ex_mem_bus_in.rd)  || (id_ex_bus_in.rs2 == ex_mem_bus_in.rd)))
         );
+
 
         //stall = load_use_hazard;
     end

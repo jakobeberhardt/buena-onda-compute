@@ -2,21 +2,6 @@
 `include "../core/utils/Opcodes.sv"
 `include "../../interfaces/ControlSignals.svh"
 
-/*
-typedef struct packed {
-    logic [31:0] instruction;
-    logic [31:0] decodeA;
-    logic [31:0] decodeB;
-    logic [31:0] branch_offset;
-    // Pass opcode, rs1, rs2, rd, funct3, funct7 for EX usage
-    logic [6:0]  opcode;
-    logic [4:0]  rs1;
-    logic [4:0]  rs2;
-    logic [4:0]  rd;
-    logic [2:0]  funct3;
-    logic [6:0]  funct7;
-} id_ex_bus_t;
-*/
 
 module PipelineRegs(
     input logic clock,
@@ -64,6 +49,19 @@ module PipelineRegs(
                 if_id_reg <= if_id_bus_in;
             end else begin
                 if_id_reg.instruction <= NOP_INST;
+                id_ex_reg.instruction <= NOP_INST;
+                // set all id ex values to respective NOP values
+                id_ex_reg.rs1 <= 0;
+                id_ex_reg.rs2 <= 0;
+                id_ex_reg.rd <= 0;
+                id_ex_reg.opcode <= 0;
+                id_ex_reg.funct3 <= 0;
+                id_ex_reg.funct7 <= 0;
+                id_ex_reg.branch_offset <= 0;
+                id_ex_reg.decodeA <= 0;
+                id_ex_reg.decodeB <= 0;
+
+
             end
             id_ex_reg <= id_ex_bus_in;
              // Print pipeline registers on update
