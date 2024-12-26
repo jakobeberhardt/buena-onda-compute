@@ -78,7 +78,7 @@ endif
 # Clean Simulation Library
 clean:
 	@echo "Cleaning simulation library..."
-	rm -rf $(LIB_DIR)
+	rm -rf $(LIB_DIR)/*
 	@echo "Clean complete."
 
 # -------------------------------------------------------------------
