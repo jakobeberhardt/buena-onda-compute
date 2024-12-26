@@ -146,12 +146,25 @@ module RISCVCPU(
     
 
     // Memories
-    logic [31:0] imemData;
-    IMemory imem(
-        .addr(if_stage.PC >> 2), // expose PC from IF stage if needed
-        .dataOut(imemData)
+    logic [31:0] iCache_instr;    // instruction output from ICache to IF
+    logic [31:0] iCache_memAddr;  // address from ICache to IMemory
+    logic [31:0] iMem_data;       // data from IMemory back to ICache
+
+    ICache i_cache(
+        .clock(clock),
+        .reset(reset),
+        .addr_in(if_stage.PC >> 2),
+        .data_out(iCache_instr),
+
+        .mem_addr(iCache_memAddr),
+        .mem_dataOut(iMem_data)
     );
-    assign if_id_bus_in.instruction = imemData;
+
+    IMemory imem(
+        .addr(iCache_memAddr),
+        .dataOut(iMem_data)
+    );
+    assign if_id_bus_in.instruction = iCache_instr;
 
     
     DMemory dmem(
