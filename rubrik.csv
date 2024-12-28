@@ -1,0 +1,28 @@
+Funcionality, done
+itlb, 0
+icache, 0
+branch pred, 0
+superv/user, 0	
+bypass alu, 1	
+bypass mem, 1	
+dtlb    , 0
+ptw     , 0
+dcache	, 0
+lb lh lw	, 1
+sb sh sw	, 1
+store buffer, 0	
+common mem	, 0
+rob	        , 0
+iret	    , 0
+csrrw	    , 0
+exceptions  , 0	
+isa	        , 1
+TLB miss    , 0	
+tlbwrite    , 0	
+sb drain    , 0	
+5stage mul  , 0	
+bypass form sb, 0	
+perf data	 , 0
+code style	, 1
+waves	  , 0
+Total, 5

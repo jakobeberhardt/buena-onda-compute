@@ -192,7 +192,6 @@ module RISCVCPU(
             $display("                   inst valid   = %0d", ctrl_signals.imem_stall);
             $display("Stalls----------------------------");
         end
-
     end
 
     // Connect MEM stage logic to dmemData and mem_wb_bus_in

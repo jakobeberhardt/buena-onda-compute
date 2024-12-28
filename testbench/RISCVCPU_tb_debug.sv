@@ -28,25 +28,23 @@ module RISCVCPU_tb_debug;
     // ----------------------------------
     initial begin
         // Clear entire IMem to 0 just in case
-        for (int i = 0; i < 256; i++) begin
+       /* for (int i = 0; i < 256; i++) begin
             dut.imem.IMem[i] = 32'h00000013; // default = NOP
-        end
+        end*/
 
-        dut.regfile.Regs[2] = 10; // x5 = 10
+        dut.regfile.Regs[2] = 32'hffff00ff;
+        dut.regfile.Regs[1] = 32'h00000001;
 
         // -- Program: place instructions in IMem --
-        dut.imem.IMem[0] = 32'h00a00093; // addi x1, x0, 10
-        dut.imem.IMem[1] = 32'h00208a63; // beq x1, x2, 20
-        dut.imem.IMem[2] = 32'h00a102e7; // jalr x5, 10(x2)
-        dut.imem.IMem[3] = 32'h00300113; // addi x2, x0, 3
-        dut.imem.IMem[4] = 32'h002081B3; // add  x3, x1, x2
-        dut.imem.IMem[5] = 32'h00900093; // addi x1, x0, 9
-        dut.imem.IMem[6] = 32'h00000013; // NOP
-        dut.imem.IMem[7] = 32'h00412303; // lw   x6, 4(x2)
+        dut.imem.IMem[0] = 32'h00000083; // lb x1, 0(x0)
+        dut.imem.IMem[1] = 32'h00200223; // sb x2, 4(x0)
+        //dut.imem.IMem[0] = 32'h001080b3; // add x1, x1, x1
+        //dut.imem.IMem[1] = 32'h001080b3; // add x1, x1, x1
+
         
         // Load DMem
-        //$readmemh("testbench/data/dmem.dat", dut.dmem.DMem);
-        dut.dmem.DMem[0] = 10;
+        $readmemh("testbench/data/dmem.dat", dut.dmem.DMem);
+        //dut.dmem.DMem[0] = 10;
 
     end
 
@@ -61,13 +59,13 @@ module RISCVCPU_tb_debug;
         reset = 0;
 
         // Run Simulation for Sufficient Cycles to Execute Instructions
-        repeat (12) @(posedge clock); 
+        repeat (30) @(posedge clock); 
         
 
         // Display Register Values After Execution
         $display("==== Final Register File ====");
         for (int i = 0; i <= 12; i = i + 1) begin
-            $display("After execution, x%d = %d", i, dut.regfile.Regs[i]);
+            $display("After execution, x%0d = %0d", i, dut.regfile.Regs[i]);
         end
 
         //print top 5 values of DMEM

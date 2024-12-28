@@ -17,4 +17,11 @@ parameter MUL     = 3'b000;
 parameter ADDSUB  = 7'b0000000;
 parameter MULOP   = 7'b0000001;
 
+//funct3 values
+parameter LW_FUNCT3 = 3'b010;
+parameter SW_FUNCT3 = 3'b010;
+parameter LB_FUNCT3 = 3'b000;
+parameter SB_FUNCT3 = 3'b000;
+parameter LH_FUNCT3 = 3'b100;
+parameter SH_FUNCT3 = 3'b100;
 

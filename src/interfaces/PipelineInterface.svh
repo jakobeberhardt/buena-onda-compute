@@ -31,6 +31,7 @@ typedef struct packed {
     // Pass opcode, rd for MEM stage
     logic [6:0]  opcode;
     logic [4:0]  rd;
+    logic [2:0]  funct3;
 } ex_mem_bus_t;
 
 typedef struct packed {

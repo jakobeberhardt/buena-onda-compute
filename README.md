@@ -29,20 +29,19 @@ https://luplab.gitlab.io/rvcodecjs/
 
 
 ## TODO
-- Complete and test full ISA
+- Fix Instruction fetch taking more cycles than needed
 - Make MUL and Mem Instructions take multiple cycles
-- Store buffer
+- Store buffer, Store buffer drain, Store buffer Bypass
 - Cache (Icache and Dcache)
-- Exception
-- Virtual Memory(ITlb and DTlb)
-- Rob
+- Exception and Rob
+- Virtual Memory(ITlb, DTlb, Tlb Miss and write, superv/user, ptw, iret, csrrw )
 - Branch Predictor
 - OoO
 
-# Code Improvement, works but coding style code be improved:
+# Code Improvement, works but coding style could be improved:
 - Where and how JALR Address is calculated
 - Bypassing inside control unit? Works perfectly but..??
-- Setting to much stuff to zero in PipelineRegs
+- Setting too much stuff to zero in PipelineRegs
 - The whole "BypassRs2SW(BValue)" Used in EX
 
 

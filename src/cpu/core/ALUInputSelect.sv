@@ -27,10 +27,8 @@ module ALUInputSelect(
                 ? MEMWBValue
                 : IDEXA;
 
-    assign BypassB = (bypassBfromMEM === 1'b1)
-                    ? EXMEMALUOut
-                 : ((bypassBfromALUinWB === 1'b1) || (bypassBfromLDinWB === 1'b1))
-                    ? MEMWBValue
+    assign BypassB = (bypassBfromMEM === 1'b1) ? EXMEMALUOut :
+                     ((bypassBfromALUinWB === 1'b1) || (bypassBfromLDinWB === 1'b1)) ? MEMWBValue
                     : IDEXB;
 
     assign BypassRs2SW = BypassB; // Value to get bypassed for SW

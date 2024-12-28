@@ -56,11 +56,19 @@ module EX(
         .EXMEMALUOut(EXMEMALUOut)
     );
 
+    
+
     assign ex_mem_bus_out.instruction = id_ex_bus_in.instruction;
     assign ex_mem_bus_out.alu_result = EXMEMALUOut;
-    assign ex_mem_bus_out.b_val = BValue;
+    // select bits if sb, sh or sw
+    assign ex_mem_bus_out.b_val = (id_ex_bus_in.funct3 == SB_FUNCT3) ? {{24{BValue[7]}},  BValue[7:0]}  :  // Sign-extend 8 bits to 32 bits
+                              (id_ex_bus_in.funct3 == SH_FUNCT3) ? {{16{BValue[15]}}, BValue[15:0]} :  // Sign-extend 16 bits to 32 bits
+                            BValue;  // Use full 32 bits
+
+
     assign ex_mem_bus_out.opcode = id_ex_bus_in.opcode;
     assign ex_mem_bus_out.rd = id_ex_bus_in.rd;
+    assign ex_mem_bus_out.funct3 = id_ex_bus_in.funct3;
 
     always @(posedge clock) begin
         if (`DEBUG) begin

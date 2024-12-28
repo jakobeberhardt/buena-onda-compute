@@ -9,9 +9,6 @@ module DMemory(
     output logic [31:0] readData
 );
 
-    logic [31:0] actualWriteData;
-
-    //assign actualWriteData = byp
 
 
     logic [31:0] DMem[0:1023];
