@@ -16,6 +16,13 @@ module RISCVCPU_tb_basic;
         .reset(reset)
     );
 
+    initial begin
+        // VCD output filename
+        $dumpfile("RISCVCPU_tb_basic.vcd");
+        // Dump everything in this testbench hierarchy
+        $dumpvars(0, RISCVCPU_tb_basic);
+    end
+
     // Clock Generation: 10ns Period (100MHz)
     initial begin
         clock = 0;
@@ -60,7 +67,7 @@ module RISCVCPU_tb_basic;
         reset = 0;
 
         // Run Simulation for Sufficient Cycles to Execute Instructions
-        repeat (50) @(posedge clock); 
+        repeat (500) @(posedge clock); 
         
 
         // Display Register Values After Execution

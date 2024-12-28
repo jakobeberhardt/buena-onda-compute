@@ -1,24 +1,26 @@
 module ICache(
-    input  logic        clock,
-    input  logic        reset,
-    input  logic [31:0] addr_in,     // CPU's requested PC
-    output logic [31:0] data_out,    // Instruction to CPU/IF stage
+    input  logic         clock,
+    input  logic         reset,
+    
+    // to fetch stage
+    input  logic [31:0]  addr_in,     
+    output logic [31:0]  data_out,    
 
-    // interface to IMemory
-    output logic [31:0] mem_addr,
-    input  logic [31:0] mem_dataOut
+    // to IMemory
+    output logic [31:0]  mem_addr,
+    input  logic [31:0]  mem_dataOut,
+    input  logic         mem_valid
 );
-
-
-    assign mem_addr  = addr_in;     // pass address to memory
-    assign data_out  = mem_dataOut; // pass memory data out to CPU
+    assign mem_addr = addr_in;
 
     always_ff @(posedge clock or posedge reset) begin
         if (reset) begin
-            // Initialize cache
+            data_out <= 32'h0;
         end
         else begin
-            // real logic
+            if (mem_valid) begin
+                data_out <= mem_dataOut;
+            end
         end
     end
 

@@ -68,7 +68,7 @@ module RISCVCPU_tb_load_hazard;
         reset = 0;
 
         // Run Simulation for Sufficient Cycles to Execute Instructions
-        repeat (20) @(posedge clock); 
+        repeat (500) @(posedge clock); 
         
 
         // Display Register Values After Execution

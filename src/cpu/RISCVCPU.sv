@@ -1,3 +1,4 @@
+`define DEBUG 1 
 `include "../interfaces/PipelineInterface.svh"
 `include "../cpu/core/utils/Opcodes.sv"
 `include "../interfaces/ControlSignals.svh"
@@ -19,6 +20,7 @@ module RISCVCPU(
     logic bypassDecodeAfromWB, bypassDecodeBfromWB;
     logic takebranch;
     logic stall;
+    logic iMem_valid;
     initial stall = 0;
     initial takebranch = 0;
     initial bypassAfromMEM = 0;
@@ -150,19 +152,23 @@ module RISCVCPU(
     logic [31:0] iCache_memAddr;  // address from ICache to IMemory
     logic [31:0] iMem_data;       // data from IMemory back to ICache
 
+    IMemory imem(
+        .clock(clock),
+        .reset(reset),
+        .addr(iCache_memAddr),
+        .dataOut(iMem_data),
+        .mem_valid(iMem_valid)
+    );
+
     ICache i_cache(
         .clock(clock),
         .reset(reset),
         .addr_in(if_stage.PC >> 2),
         .data_out(iCache_instr),
-
+        // to/from IMemory
         .mem_addr(iCache_memAddr),
-        .mem_dataOut(iMem_data)
-    );
-
-    IMemory imem(
-        .addr(iCache_memAddr),
-        .dataOut(iMem_data)
+        .mem_dataOut(iMem_data),
+        .mem_valid(iMem_valid)
     );
     assign if_id_bus_in.instruction = iCache_instr;
 
@@ -177,7 +183,16 @@ module RISCVCPU(
 
     always_comb begin
         ctrl_signals.takebranch = takebranch;
-        ctrl_signals.stall      = stall;
+        ctrl_signals.imem_stall = ~iMem_valid;
+        ctrl_signals.stall      = stall | ~iMem_valid;
+        if (`DEBUG) begin
+            $display("Stalls----------------------------");
+            $display("Time: %0t | DEBUG: stall signal = %0d", $time, ctrl_signals.stall);
+            $display("                   takebranch   = %0d", ctrl_signals.takebranch);
+            $display("                   inst valid   = %0d", ctrl_signals.imem_stall);
+            $display("Stalls----------------------------");
+        end
+
     end
 
     // Connect MEM stage logic to dmemData and mem_wb_bus_in
