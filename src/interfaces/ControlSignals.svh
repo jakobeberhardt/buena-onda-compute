@@ -4,7 +4,7 @@
 typedef struct packed {
     logic stall;     
     logic takebranch;   
-    logic imem_stall;   
+    logic icache_stall;     
 } control_signals_t;
 
 `endif

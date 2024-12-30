@@ -5,6 +5,7 @@ module ICache(
     // to fetch stage
     input  logic [31:0]  addr_in,     
     output logic [31:0]  data_out,    
+    output logic         data_out_valid,
 
     // to IMemory
     output logic [31:0]  mem_addr,
@@ -12,6 +13,7 @@ module ICache(
     input  logic         mem_valid
 );
     assign mem_addr = addr_in;
+    assign data_out_valid = mem_valid;
 
     always_ff @(posedge clock or posedge reset) begin
         if (reset) begin
