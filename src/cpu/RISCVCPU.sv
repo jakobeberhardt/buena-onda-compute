@@ -1,4 +1,4 @@
-`define DEBUG 1 
+`define DEBUG 0 
 `include "../interfaces/PipelineInterface.svh"
 `include "../cpu/core/utils/Opcodes.sv"
 `include "../interfaces/ControlSignals.svh"

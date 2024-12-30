@@ -1,4 +1,4 @@
-`define DEBUG 1  // Set to 1 to enable debug prints, 0 to disable
+`define DEBUG 0  // Set to 1 to enable debug prints, 0 to disable
 `timescale 1ns/1ps
 
 module RISCVCPU_tb_debug;

@@ -1,4 +1,4 @@
-`define DEBUG 1  // Set to 1 to enable debug prints, 0 to disable
+`define DEBUG 0  // Set to 1 to enable debug prints, 0 to disable
 `include "../core/utils/Opcodes.sv"
 
 module DMemory(
