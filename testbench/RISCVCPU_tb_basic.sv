@@ -29,6 +29,12 @@ module RISCVCPU_tb_basic;
         forever #5 clock = ~clock; // Toggle clock every 5ns
     end
 
+    typedef bit [31:0] word_type;
+    typedef bit [127:0] cache_data_type;
+
+    // Temporary array to hold 32-bit words
+    word_type temp_DMem_words [0:4095]; // Adjust size as needed
+
     
     // ----------------------------------
     // IMem and DMem Initialization
@@ -50,9 +56,21 @@ module RISCVCPU_tb_basic;
         dut.imem.IMem[7] = 32'h00502023; // sw   x5, 0(x0)
         dut.imem.IMem[8] = 32'h00000013; // nop
         dut.imem.IMem[9] = 32'h00000013; // nop
+        //force cache data into main memory by writing exact lines of cache memory
+        dut.imem.IMem[10] = 32'h0000007f; // SPecial Instruction to Drain cache to DMEM
+
 
         // Load DMem
-        //$readmemh("testbench/data/dmem.dat", dut.dmem.DMem);
+        // Load 32-bit words from the data file
+        $readmemh("testbench/data/dmem.dat", temp_DMem_words);
+
+        // Pack every four 32-bit words into one 128-bit block
+        for (int i = 0; i < 1024; i++) begin
+            dut.mem_stage.main_memory.memArray[i] = {temp_DMem_words[4*i + 3],
+                                temp_DMem_words[4*i + 2],
+                                temp_DMem_words[4*i + 1],
+                                temp_DMem_words[4*i]};
+        end
 
     end
 
@@ -99,11 +117,12 @@ module RISCVCPU_tb_basic;
         check_reg(6, 100);
         check_reg(7, 115);
 
-        if (dut.dmem.DMem[0] == 32'd15) begin
-            $display("DMEM[0] PASS: got %0d, expected 15", dut.dmem.DMem[0]);
+        // Accessing word0 (bits [31:0]) of memArray[0]
+        if (dut.mem_stage.main_memory.memArray[0][31:0] == 32'd15) begin
+            $display("DMEM[0][31:0] PASS: got %0d, expected 15", dut.mem_stage.main_memory.memArray[0][31:0]);
             pass_count++;
         end else begin
-            $display("DMEM[0] FAIL: got %0d, expected 15", dut.dmem.DMem[0]);
+            $display("DMEM[0][31:0] FAIL: got %0d, expected 15", dut.mem_stage.main_memory.memArray[0][31:0]);
             fail_count++;
         end
 

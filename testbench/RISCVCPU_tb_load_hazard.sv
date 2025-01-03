@@ -22,6 +22,12 @@ module RISCVCPU_tb_load_hazard;
         forever #5 clock = ~clock; // Toggle clock every 5ns
     end
 
+    typedef bit [31:0] word_type;
+    typedef bit [127:0] cache_data_type;
+
+    // Temporary array to hold 32-bit words
+    word_type temp_DMem_words [0:4095]; 
+
     
     // ----------------------------------
     // IMem and DMem Initialization
@@ -32,8 +38,16 @@ module RISCVCPU_tb_load_hazard;
             dut.imem.IMem[i] = 32'h00000013; // default = NOP
         end
 
-        // Load DMem
-        $readmemh("testbench/data/dmem.dat", dut.dmem.DMem);
+        // Load 32-bit words from the data file
+        $readmemh("testbench/data/dmem.dat", temp_DMem_words);
+
+        // Pack every four 32-bit words into one 128-bit block
+        for (int i = 0; i < 1024; i++) begin
+            dut.mem_stage.main_memory.memArray[i] = {temp_DMem_words[4*i + 3],
+                                temp_DMem_words[4*i + 2],
+                                temp_DMem_words[4*i + 1],
+                                temp_DMem_words[4*i]};
+        end
 
         // -- Program: place instructions in IMem --
         // instructions to test load hazard
@@ -49,8 +63,11 @@ module RISCVCPU_tb_load_hazard;
         dut.imem.IMem[9] = 32'h0002a303; // lw x6, 0(x5)
         dut.imem.IMem[10] = 32'h00632223; // sw x6, 4(x6)
         dut.imem.IMem[11] = 32'h00000013;
+        //force cache data into main memory by writing exact lines of cache memory
+        dut.imem.IMem[12] = 32'h0000007f; // SPecial Instruction to Drain cache to DMEM
 
-        dut.dmem.DMem[0] = 32'h00000005; // DMEM[0] = 5
+
+        dut.mem_stage.main_memory.memArray[0][31:0] = 32'h00000005; // DMEM[0][Word0] = 5
         
         
         
@@ -77,11 +94,9 @@ module RISCVCPU_tb_load_hazard;
             $display("After execution, x%d = %d", i, dut.regfile.Regs[i]);
         end
 
-        //print top 5 values of DMEM
-        for (int i = 0; i < 10; i = i + 1) begin
-            $display("DMEM[%0d] = %0d", i, dut.dmem.DMem[i]);
-        end
-
+        // Display Memory Contents
+        print_mainMem();
+        print_cacheMem();
 
         // Verify Key Registers
         check_results();
@@ -90,8 +105,75 @@ module RISCVCPU_tb_load_hazard;
         $finish;
     end
 
+    task automatic print_mainMem();
+        // Print top 4 lines of memory, each line is 128 bits (4 x 32-bit words)
+        $display("==== Final Memory ====");
+        for (int i = 0; i < 4; i = i + 1) begin
+            for (int j = 0; j < 4; j = j + 1) begin
+                // Declare variables as automatic to ensure they are stack-based
+                automatic int msb;
+                automatic int lsb;
+                automatic logic [31:0] current_word;
+                msb = (j + 1) * 32 - 1;
+                lsb = j * 32;
+                
+                // Calculate the bit range for the current word using a case statement
+                case (j)
+                    0: begin
+                        current_word = dut.mem_stage.main_memory.memArray[i][31:0];
+                    end
+                    1: begin
+                        current_word = dut.mem_stage.main_memory.memArray[i][63:32];
+                    end
+                    2: begin
+                        current_word = dut.mem_stage.main_memory.memArray[i][95:64];
+                    end
+                    3: begin
+                        current_word = dut.mem_stage.main_memory.memArray[i][127:96];
+                    end
+                endcase
+                // Display the word with proper indexing
+                $display("memArray[%0d] word%0d [%0d:%0d] = %0d", 
+                        i * 4 + j, j, msb, lsb, current_word);
+            end
+        end
+    endtask
 
-     task automatic check_results();
+    task automatic print_cacheMem();
+        // Print top 4 lines of memory, each line is 128 bits (4 x 32-bit words)
+        $display("==== Final Cache Memory ====");
+        for (int i = 0; i < 4; i = i + 1) begin
+            for (int j = 0; j < 4; j = j + 1) begin
+                // Declare variables as automatic to ensure they are stack-based
+                automatic int msb;
+                automatic int lsb;
+                automatic logic [31:0] current_word;
+                msb = (j + 1) * 32 - 1;
+                lsb = j * 32;
+                
+                // Calculate the bit range for the current word using a case statement
+                case (j)
+                    0: begin
+                        current_word = dut.mem_stage.cache_controller.cdata.data_mem[i][31:0];
+                    end
+                    1: begin
+                        current_word = dut.mem_stage.cache_controller.cdata.data_mem[i][63:32];
+                    end
+                    2: begin
+                        current_word = dut.mem_stage.cache_controller.cdata.data_mem[i][95:64];
+                    end
+                    3: begin
+                        current_word = dut.mem_stage.cache_controller.cdata.data_mem[i][127:96];
+                    end
+                endcase
+                // Display the word with proper indexing
+                $display("CacheArray[%0d] word%0d [%0d:%0d] = %0d", 
+                        i * 4 + j, j, msb, lsb, current_word);
+            end
+        end
+    endtask
+
+    task automatic check_results();
         int pass_count = 0;
         int fail_count = 0;
 
@@ -107,10 +189,10 @@ module RISCVCPU_tb_load_hazard;
         check_reg(6,   12);
 
         check_dmem(0, 5);
-        check_dmem(1, 10);
-        check_dmem(2, 15);
-        check_dmem(3, 12);
-        check_dmem(4, 12);
+        check_dmem(4, 10);
+        check_dmem(8, 15);
+        check_dmem(12, 12);
+        check_dmem(16, 12);
 
         if (fail_count == 0)
             $display("[TEST PASS] All checks passed!");
@@ -119,12 +201,20 @@ module RISCVCPU_tb_load_hazard;
     endtask
 
     task check_dmem(input int addr, input int expected);
-        if (dut.dmem.DMem[addr] == expected) begin
+        automatic logic [31:0] memValue;
+        automatic int word_in_line = (addr / 4) % 4;
+        case (word_in_line) 
+            0: memValue = dut.mem_stage.main_memory.memArray[addr/16][31:0];
+            1: memValue = dut.mem_stage.main_memory.memArray[addr/16][63:32];
+            2: memValue = dut.mem_stage.main_memory.memArray[addr/16][95:64];
+            3: memValue = dut.mem_stage.main_memory.memArray[addr/16][127:96];
+        endcase
+        if (memValue == expected) begin
             $display("DMEM[%0d] PASS: got %0d, expected %0d", 
-                     addr, dut.dmem.DMem[addr], expected);
+                     addr, memValue, expected);
         end else begin
             $display("DMEM[%0d] FAIL: got %0d, expected %0d", 
-                     addr, dut.dmem.DMem[addr], expected);
+                     addr, memValue, expected);
         end
     endtask
 

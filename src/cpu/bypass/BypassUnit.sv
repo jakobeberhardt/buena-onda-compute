@@ -1,5 +1,3 @@
-`timescale 1ns/1ps
-
 // Include the interfaces and opcodes BEFORE the module definition
 `include "../../interfaces/PipelineInterface.svh"
 `include "../core/utils/Opcodes.sv"

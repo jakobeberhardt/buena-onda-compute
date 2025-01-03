@@ -19,10 +19,11 @@ module RISCVCPU(
     logic bypassAfromLDinWB, bypassBfromLDinWB;
     logic bypassDecodeAfromWB, bypassDecodeBfromWB;
     logic takebranch;
-    logic stall;
+    logic load_use_stall;
+    logic dCacheStall;
     logic iMem_valid;
     logic iCache_valid;
-    initial stall = 0;
+    initial load_use_stall = 0;
     initial takebranch = 0;
     initial bypassAfromMEM = 0;
     initial bypassBfromMEM = 0;
@@ -88,14 +89,13 @@ module RISCVCPU(
         .ctrl_signals_in(ctrl_signals)
     );
 
-    logic [31:0] dmemData;
-
+    
     MEM mem_stage(
         .clock(clock),
         .reset(reset),
         .ex_mem_bus_in(ex_mem_bus_out),
-        .dmemData(dmemData),
-        .mem_wb_bus_out(mem_wb_bus_in)
+        .mem_wb_bus_out(mem_wb_bus_in),
+        .stall(dCacheStall)
     );
 
     WB wb_stage(
@@ -108,8 +108,7 @@ module RISCVCPU(
     PipelineRegs pipeline_regs(
         .clock(clock),
         .reset(reset),
-        .stall(ctrl_signals.stall),
-        .takebranch(ctrl_signals.takebranch),
+        .ctrl_signals(ctrl_signals),
         .if_id_bus_in(if_id_bus_in), .if_id_bus_out(if_id_bus_out),
         .id_ex_bus_in(id_ex_bus_in), .id_ex_bus_out(id_ex_bus_out),
         .ex_mem_bus_in(ex_mem_bus_in), .ex_mem_bus_out(ex_mem_bus_out),
@@ -127,10 +126,8 @@ module RISCVCPU(
     HazardUnit hazard_unit(
         .id_ex_bus_in(id_ex_bus_in),
         .ex_mem_bus_in(ex_mem_bus_in),
-        .stall(stall)
+        .stall(load_use_stall)
     );
-
-    //assign ctrl_signals.stall = stall;
 
     BypassUnit bypass_unit(
         .id_ex_bus_in(id_ex_bus_out),
@@ -175,36 +172,27 @@ module RISCVCPU(
     assign if_id_bus_in.instruction = iCache_instr;
 
     
-    DMemory dmem(
-        .clock(clock),
-        .op(ex_mem_bus_out.opcode),
-        .addr(ex_mem_bus_out.alu_result >> 2),
-        .writeData(ex_mem_bus_out.b_val),
-        .readData(dmemData)
-    );
 
+
+    //Set control signals
     always_comb begin
         ctrl_signals.takebranch = takebranch;
         ctrl_signals.icache_stall = ~iCache_valid;
-        ctrl_signals.stall      = stall | ~iCache_valid;;
-        if (`DEBUG) begin
+        ctrl_signals.dcache_stall = dCacheStall;
+        ctrl_signals.load_use_stall = load_use_stall;
+        ctrl_signals.stall      = load_use_stall | ~iCache_valid | dCacheStall;
+    end
+
+    always_ff @(posedge clock) begin
+       if (`DEBUG) begin
             $display("Stalls----------------------------");
             $display("Time: %0t | DEBUG: stall signal = %0d", $time, ctrl_signals.stall);
             $display("                   takebranch   = %0d", ctrl_signals.takebranch);
             $display("                   inst valid   = %0d", ctrl_signals.icache_stall);
+            $display("                   dCache stall = %0d", dCacheStall);
+            $display("                   load use stall = %0d", load_use_stall);
             $display("Stalls----------------------------");
         end
     end
-
-    // Connect MEM stage logic to dmemData and mem_wb_bus_in
-    // mem_wb_bus_in.wb_value = depends on ex_mem_bus_out.opcode:
-    // if LW: mem_wb_bus_in.wb_value = dmemData
-    // if ALU: wb_value = ex_mem_bus_out.alu_result
-    // if SW: no write-back (0)
-
-    // Similar for decodeA/decodeB from ID stage using regfile_out_rs1/rs2 and mem_wb_bus_out for bypass at decode.
-    // Remove or comment out this block from RISCVCPU.sv
-    
-
 
 endmodule

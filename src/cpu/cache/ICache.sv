@@ -22,6 +22,8 @@ module ICache(
         else begin
             if (mem_valid) begin
                 data_out <= mem_dataOut;
+            end else begin
+                data_out <= 32'h0;
             end
         end
     end

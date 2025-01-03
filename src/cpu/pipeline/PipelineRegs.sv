@@ -6,8 +6,7 @@
 module PipelineRegs(
     input logic clock,
     input logic reset,
-    input logic stall,
-    input logic takebranch,
+    input control_signals_t ctrl_signals,
 
     input wire if_id_bus_t if_id_bus_in,
     output if_id_bus_t if_id_bus_out,
@@ -22,8 +21,6 @@ module PipelineRegs(
     output mem_wb_bus_t mem_wb_bus_out
 );
 
-    // For simplicity, if stall or branch, inject NOP instructions
-    // NOP_INST defined in Opcodes.sv
 
     if_id_bus_t if_id_reg;
     id_ex_bus_t id_ex_reg;
@@ -33,60 +30,41 @@ module PipelineRegs(
 
     always_ff @(posedge clock or posedge reset) begin
         if (reset) begin
-            if_id_reg.instruction <= NOP_INST;
-            id_ex_reg.instruction <= NOP_INST;
-            ex_mem_reg.instruction <= NOP_INST;
-            mem_wb_reg.instruction <= NOP_INST;
+            if_id_reg <= if_id_nop;
+            id_ex_reg <= id_ex_nop;
+            ex_mem_reg <= ex_mem_nop;
+            mem_wb_reg <= mem_wb_nop;
 
-            //set all values to 0
-            if_id_reg.rs1 <= 0;
-            if_id_reg.rs2 <= 0;
+        end else if (ctrl_signals.takebranch && !ctrl_signals.stall) begin
+            // Inject NOP into IF/ID to flush the instruction fetched after the branch
+            if_id_reg <= if_id_nop;
 
-            // Print pipeline registers on reset
-            //$display("RESET: if_id_reg = %p, id_ex_reg = %p, ex_mem_reg = %p, mem_wb_reg = %p",if_id_reg, id_ex_reg, ex_mem_reg, mem_wb_reg);
-        end else if (!stall) begin
-            if (!takebranch) begin
-                if_id_reg <= if_id_bus_in;
-            end else begin
-                if_id_reg.instruction <= NOP_INST;
-                id_ex_reg.instruction <= NOP_INST;
-                // set all id ex values to respective NOP values
-                id_ex_reg.rs1 <= 0;
-                id_ex_reg.rs2 <= 0;
-                id_ex_reg.rd <= 0;
-                id_ex_reg.opcode <= 0;
-                id_ex_reg.funct3 <= 0;
-                id_ex_reg.funct7 <= 0;
-                id_ex_reg.branch_offset <= 0;
-                id_ex_reg.decodeA <= 0;
-                id_ex_reg.decodeB <= 0;
-
-
-            end
+            // Allow other pipeline stages to proceed normally
             id_ex_reg <= id_ex_bus_in;
-             // Print pipeline registers on update
-            //$display("UPDATE: if_id_reg = %p, id_ex_reg = %p, ex_mem_reg = %p, mem_wb_reg = %p",if_id_reg, id_ex_reg, ex_mem_reg, mem_wb_reg);
-        end else begin
-            // Stall: EXMEMIR <= NOP, don't update others
-            id_ex_reg.instruction <= NOP_INST;
-            // set all id ex values to respective NOP values
-            id_ex_reg.rs1 <= 0;
-            id_ex_reg.rs2 <= 0;
-            id_ex_reg.rd <= 0;
-            id_ex_reg.opcode <= 0;
-            id_ex_reg.funct3 <= 0;
-            id_ex_reg.funct7 <= 0;
-            id_ex_reg.branch_offset <= 0;
-            id_ex_reg.decodeA <= 0;
-            id_ex_reg.decodeB <= 0;
+            ex_mem_reg <= ex_mem_bus_in;
+            mem_wb_reg <= mem_wb_bus_in;
 
-            // Print stall condition
-            //$display("STALL: if_id_reg = %p, id_ex_reg = %p, ex_mem_reg = %p, mem_wb_reg = %p",if_id_reg, id_ex_reg, ex_mem_reg, mem_wb_reg);
-            // Keep others stable
+        end else if (ctrl_signals.dcache_stall) begin
+            // Handle Data Cache Stall
+
+            mem_wb_reg <= mem_wb_nop;
+
+        end else if (ctrl_signals.load_use_stall) begin
+            // Handle Load Stall
+            // Inject NOP into ID/EX to create a bubble
+            id_ex_reg <= id_ex_nop;
+
+            // EX/MEM and MEM/WB stages proceed normally
+            ex_mem_reg <= ex_mem_bus_in;
+            mem_wb_reg <= mem_wb_bus_in;
+
+        end else begin
+            // Normal Pipeline Operation: Update all pipeline stages
+            if_id_reg <= if_id_bus_in;
+            id_ex_reg <= id_ex_bus_in;
+            ex_mem_reg <= ex_mem_bus_in;
+            mem_wb_reg <= mem_wb_bus_in;
         end
-        mem_wb_reg <= mem_wb_bus_in;
-        ex_mem_reg <= ex_mem_bus_in;
-        
     end
 
     assign if_id_bus_out = if_id_reg;

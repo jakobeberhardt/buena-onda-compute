@@ -1,9 +1,9 @@
 `include "../core/utils/Opcodes.sv"
-`include "../../interfaces/ControlSignals.svh"
+//`include "../../interfaces/ControlSignals.svh"
 `include "../../interfaces/PipelineInterface.svh"
 
 module ControlUnit(
-    input wire  id_ex_bus_t id_ex_bus_in,
+    input wire id_ex_bus_t id_ex_bus_in,
     input wire  ex_mem_bus_t ex_mem_bus_in,
     input wire  mem_wb_bus_t mem_wb_bus_in,
     output logic takebranch,
