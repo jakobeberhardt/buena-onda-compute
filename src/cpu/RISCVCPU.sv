@@ -150,7 +150,17 @@ module RISCVCPU(
     logic [31:0] iCache_memAddr;  // address from ICache to IMemory
     logic [31:0] iMem_data;       // data from IMemory back to ICache
 
+
+    //TODO: Fix ICACHE
+    logic [31:0] imemData;
     IMemory imem(
+        .addr(if_stage.PC >> 2), // expose PC from IF stage if needed
+        .dataOut(imemData)
+    );
+    assign if_id_bus_in.instruction = imemData;
+
+
+    /*IMemory imem(
         .clock(clock),
         .reset(reset),
         .addr(iCache_memAddr),
@@ -169,11 +179,12 @@ module RISCVCPU(
         .mem_dataOut(iMem_data),
         .mem_valid(iMem_valid)
     );
-    assign if_id_bus_in.instruction = iCache_instr;
+    assign if_id_bus_in.instruction = iCache_instr;*/
 
     
 
-
+    //This to prevent Icache Issues
+    assign iCache_valid = 1;
     //Set control signals
     always_comb begin
         ctrl_signals.takebranch = takebranch;

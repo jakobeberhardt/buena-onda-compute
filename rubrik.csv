@@ -7,10 +7,10 @@ bypass alu, 1
 bypass mem, 1	
 dtlb    , 0
 ptw     , 0
-dcache	, 0
+dcache	, 1
 lb lh lw	, 1
 sb sh sw	, 1
-store buffer, 0	
+store buffer, 1	
 common mem	, 0
 rob	        , 0
 iret	    , 0
@@ -19,10 +19,10 @@ exceptions  , 0
 isa	        , 1
 TLB miss    , 0	
 tlbwrite    , 0	
-sb drain    , 0	
+sb drain    , 1	
 5stage mul  , 0	
-bypass form sb, 0	
+bypass form sb, 1	
 perf data	 , 0
 code style	, 1
 waves	  , 0
-Total, 5
+Total, 10/26

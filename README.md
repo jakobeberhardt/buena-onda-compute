@@ -29,20 +29,18 @@ https://luplab.gitlab.io/rvcodecjs/
 
 
 ## TODO
+- Test SByte and LByte
 - Make MUL and Mem Instructions take multiple cycles
-- Store buffer, Store buffer drain, Store buffer Bypass
-- Cache (Icache and Dcache)
+- Cache (Icache)
 - Exception and Rob
 - Virtual Memory(ITlb, DTlb, Tlb Miss and write, superv/user, ptw, iret, csrrw )
 - Branch Predictor
 - OoO
 - Handle accessing word from different cache lines
-- Test SB and LB
+
 
 # Code Improvement, works but coding style could be improved:
 - Where and how JALR Address is calculated
 - Bypassing inside control unit? Works perfectly but..??
 - Setting too much stuff to zero in PipelineRegs
 - The whole "BypassRs2SW(BValue)" Used in EX
-
-

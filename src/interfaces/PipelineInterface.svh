@@ -69,7 +69,7 @@ typedef bit [127:0] cache_data_type;
 
 // CPU request (CPU->cache controller)
 typedef struct packed {               // Changed to packed
-    bit [19:0] addr;   // 20-bit request addr
+    bit [31:0] addr;   // 20-bit request addr
     bit [31:0] data;   // 32-bit request data (used when write)
     bit        rw;     // request type : 0 = read, 1 = write
     bit        valid;  // request is valid
@@ -86,7 +86,7 @@ typedef struct packed {               // Changed to packed
 
 // memory request (cache controller->memory)
 typedef struct packed {               // Changed to packed
-    bit [20:0]    addr;  // request byte addr
+    bit [31:0]    addr;  // request byte addr
     bit [127:0]   data;  // 128-bit request data (used when write)
     bit           rw;    // request type : 0 = read, 1 = write
     bit           valid; // request is valid
@@ -97,6 +97,13 @@ typedef struct packed {               // Changed to packed
     cache_data_type data;   // 128-bit read-back data
     bit             ready;  // data is ready
 } mem_data_type;
+
+// Each entry in the SB
+  typedef struct packed {
+    logic        valid;
+    logic [31:0] addr;
+    logic [31:0] data;
+  } sb_entry_t;
 
 
 //stage NOPS

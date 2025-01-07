@@ -97,6 +97,7 @@ module RISCVCPU_tb_load_hazard;
         // Display Memory Contents
         print_mainMem();
         print_cacheMem();
+        print_StoreBuffer();
 
         // Verify Key Registers
         check_results();
@@ -170,6 +171,13 @@ module RISCVCPU_tb_load_hazard;
                 $display("CacheArray[%0d] word%0d [%0d:%0d] = %0d", 
                         i * 4 + j, j, msb, lsb, current_word);
             end
+        end
+    endtask
+
+    task automatic print_StoreBuffer();
+        $display("==== Final Store Buffer ====");
+        for (int i = 0; i < 4; i = i + 1) begin
+            $display("StoreBuffer[%0d] = %0p", i, dut.mem_stage.sb.store_buf[i]);
         end
     endtask
 

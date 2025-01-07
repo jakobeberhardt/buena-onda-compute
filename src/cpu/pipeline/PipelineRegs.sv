@@ -46,8 +46,7 @@ module PipelineRegs(
 
         end else if (ctrl_signals.dcache_stall) begin
             // Handle Data Cache Stall
-
-            mem_wb_reg <= mem_wb_nop;
+            mem_wb_reg <= mem_wb_reg;
 
         end else if (ctrl_signals.load_use_stall) begin
             // Handle Load Stall

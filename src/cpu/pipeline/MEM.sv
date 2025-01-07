@@ -1,4 +1,4 @@
-`define DEBUG 1  // Set to 1 to enable debug prints, 0 to disable
+`define DEBUG 0  // Set to 1 to enable debug prints, 0 to disable
 `include "../../interfaces/PipelineInterface.svh"
 `include "../core/utils/Opcodes.sv"
 `include "../../interfaces/ControlSignals.svh"
@@ -14,9 +14,11 @@ module MEM(
     // The MEM->WB pipeline bus
     output wire mem_wb_bus_t          mem_wb_bus_out,
 
-    //stall pipeline if cache is in a miss or memory is not ready
+    //stall pipeline if cache is busy or sb is full
     output logic                stall
 );
+
+    localparam ENTRY_COUNT = 4;
 
     //========================================================
     // 1) Translate ex_mem_bus_in -> Cache FSM CPU request
@@ -38,7 +40,56 @@ module MEM(
     mem_data_type  mem_data;
 
     //========================================================
-    // 3) Instantiate the cache FSM
+    // 3) Instantiate the Store Buffer
+    //========================================================
+    logic             sb_enq_valid;
+    logic [31:0]      sb_enq_addr, sb_enq_data;
+    logic             sb_enq_ready;
+
+    logic             sb_deq_req;
+    logic             sb_deq_valid;
+    logic [31:0]      sb_deq_addr, sb_deq_data;
+    logic             sb_drain_done; // from the cache FSM
+
+    // For load forwarding
+    logic [31:0] sb_load_data;
+    logic        sb_load_hit;
+
+    logic [2:0] sb_count;
+    logic force_sb_drain;  // force drain if SB is full
+
+    
+    StoreBuffer #(.ENTRY_COUNT(4)) sb (
+        .clock       (clock),
+        .reset       (reset),
+
+        // Enqueue signals
+        .enq_valid   (sb_enq_valid),
+        .enq_addr    (sb_enq_addr),
+        .enq_data    (sb_enq_data),
+        .enq_ready   (sb_enq_ready),
+
+        // Dequeue signals
+        .deq_req     (sb_deq_req),
+        .deq_addr    (sb_deq_addr),
+        .deq_data    (sb_deq_data),
+        .deq_valid   (sb_deq_valid),
+
+        // Load forwarding
+        .load_addr   (cpu_req.addr),
+        .sb_load_data(sb_load_data),
+        .sb_load_hit (sb_load_hit),
+
+        // Count of entries
+        .count_out(sb_count),
+        .full       (force_sb_drain),  // force drain if SB is full
+
+        // Flush for (debug or test)
+        .flush       (1'b0)  // e.g., tie to (ex_mem_bus_in.opcode == DRAIN_CACHE)
+    );
+
+    //========================================================
+    // 4) Instantiate the cache FSM
     //========================================================
     cpu_result_type cpu_res;
 
@@ -48,11 +99,17 @@ module MEM(
         .cpu_req   (cpu_req),
         .cpu_res   (cpu_res),
         .mem_req   (mem_req),
-        .mem_data  (mem_data)
+        .mem_data  (mem_data),
+        // SB drain interface
+        .sb_drain_valid(sb_deq_valid),   // 1 => SB has an entry to drain
+        .sb_drain_addr (sb_deq_addr),
+        .sb_drain_data (sb_deq_data),
+        .sb_drain_done (sb_drain_done),  // FSM signals done
+        .force_drain   (force_sb_drain)  // force drain if SB is full
     );
 
     //========================================================
-    // 4) Instantiate the memory
+    // 5) Instantiate the memory
     //========================================================
     DMemory main_memory (
         .clock    (clock),
@@ -61,106 +118,115 @@ module MEM(
         .mem_data (mem_data)   // goes back to cache
     );
 
-    //========================================================
-    // 5) Instantiate the Store Buffer
-    //========================================================
-    logic        sb_push_valid;
-    logic [31:0] sb_push_addr;
-    logic [31:0] sb_push_data;
-    logic        sb_push_ready;
-
-    logic        sb_drain_valid;
-    logic [31:0] sb_drain_addr;
-    logic [31:0] sb_drain_data;
-    logic        sb_drain_ready;
-
-    logic [31:0] bypass_data;
-    logic        bypass_hit;
-
-    StoreBuffer #(.ENTRY_COUNT(4)) store_buffer_inst (
-        .clock         (clock),
-        .reset         (reset),
-
-        // Push interface
-        .sb_push_valid (sb_push_valid),
-        .sb_push_addr  (sb_push_addr),
-        .sb_push_data  (sb_push_data),
-        .sb_push_ready (sb_push_ready),
-
-        // Drain interface
-        .sb_drain_valid(sb_drain_valid),
-        .sb_drain_addr (sb_drain_addr),
-        .sb_drain_data (sb_drain_data),
-        .sb_drain_ready(sb_drain_ready),
-
-        // Load bypass
-        .load_addr     (ex_mem_bus_in.alu_result),
-        .bypass_data   (bypass_data),
-        .bypass_hit    (bypass_hit)
-    );
 
     //========================================================
-    // 6) Control Logic for the Store Buffer
+    // 6) Decide When to Dequeue (Drain) from SB
     //========================================================
-    // Determine if the current instruction is a store
-    logic isStore;
-    assign isStore = (ex_mem_bus_in.opcode == SW);
-
-    // Determine if the current instruction is a load
-    logic isLoad;
-    assign isLoad = (ex_mem_bus_in.opcode == LW);
-
-    // Logic to push store to Store Buffer on store hit
-    // Assuming cache_controller provides a 'hit' signal; 
-    logic cache_hit;
-    assign cache_hit = cpu_res.ready && (cpu_req.valid && ~isLoad); // Simplistic assumption
-
-    // Push to Store Buffer if it's a store and cache hit
-    assign sb_push_valid = isStore && cache_hit;
-    assign sb_push_addr  = cpu_req.addr;
-    assign sb_push_data  = cpu_req.data;
+    assign force_sb_drain = sb.full;
 
 
-     // Drain logic: when ALU operation is in C stage (not a load/store), drain SB
-    logic isAluOp;
-    assign isAluOp = (ex_mem_bus_in.opcode == ALUopR || ex_mem_bus_in.opcode == ALUopI) && cpu_req.valid; 
+    // If we want to force a drain, we set deq_req = 1 even if cpu_req.valid is 1
+    assign sb_deq_req = sb_deq_valid && ( ~cpu_req.valid || force_sb_drain );
 
-    // Connect drain_ready signal based on whether we're in an ALU op cycle
-    assign sb_drain_ready = isAluOp;
+    // If we are forcing a drain, we stall the pipeline
+    //if store buffer is full, we can't enqueue a new store
+
 
     //========================================================
-    // 7) Handle Load Bypass and Final WB Value
-    // Drive MEM->WB bus from the cache result
+    // 7) Enqueue Logic for CPU Store-Hit
+    //========================================================
+    // We detect a store-hit by:
+    //   1) cpu_req.rw == 1 => store
+    //   2) cpu_req.valid == 1
+    //   3) cpu_res.ready == 1 => The cache says "store is done" from pipeline viewpoint (HIT).
+    // In dm_cache_fsm, a store hit sets cpu_res.ready=1 but does NOT physically write the data array.
+    // We'll enqueue the <addr, data> in SB at that moment.
+
+    logic store_hit_and_done;
+    assign store_hit_and_done = (cpu_req.valid && cpu_req.rw && cpu_res.ready);
+
+    assign sb_enq_valid = store_hit_and_done;
+    assign sb_enq_addr  = cpu_req.addr;
+    assign sb_enq_data  = cpu_req.data;
+
+
+
+
+
+
+    //========================================================
+    // 8) Load Bypass (Forwarding) & Final WB Value
     //========================================================
     logic [31:0] finalValue;
     always_comb begin
-        finalValue = '0;
-        unique case (ex_mem_bus_in.opcode)
-          ALUopR, ALUopI: finalValue = ex_mem_bus_in.alu_result; 
-          LW: begin
-              if (bypass_hit) begin
-                  finalValue = bypass_data; // Load bypasses SB
-              end
-              else begin
-                  finalValue = cpu_res.data; // Load from cache
-              end
-          end
-          SW:             finalValue = 32'b0;        // store doesn't produce WB
-          default:        finalValue = ex_mem_bus_in.alu_result;
-        endcase
+      finalValue = '0;
+      unique case (ex_mem_bus_in.opcode)
+        ALUopR, ALUopI: finalValue = ex_mem_bus_in.alu_result;
+
+        LW: begin
+          // If the SB has a more recent store to the same address, forward that data
+          if (sb_load_hit) 
+            finalValue = sb_load_data;
+          else
+            finalValue = cpu_res.data;  // from cache
+        end
+
+        SW: finalValue = 32'b0;  // store doesn't produce WB
+        default: finalValue = ex_mem_bus_in.alu_result;
+      endcase
     end
 
     //Flush the cache, (For testing purposes)
-   always_ff @(posedge clock) begin 
+
+
+    always_ff @(posedge clock) begin
+    // Suppose you have a special opcode to dump SB to memory
         if (ex_mem_bus_in.opcode == DRAIN_CACHE) begin
+            // Iterate over every SB entry
+            for (int i = 0; i < sb.ENTRY_COUNT; i++) begin
+
+                $display("DRAINING");
+
+                if (sb.store_buf[i].valid) begin
+                    // 1) Figure out which 128-bit block in memory
+                    automatic int unsigned block_index = sb.store_buf[i].addr[31:4];
+
+                    // 2) Read out the existing block data (128 bits)
+                    automatic logic [127:0] block_data = main_memory.memArray[block_index];
+
+                    // 3) Determine which 32-bit word within the 128-bit block
+                    //    based on addr[3:2]:
+                    unique case (sb.store_buf[i].addr[3:2])
+                        2'b00: block_data[ 31:  0] = sb.store_buf[i].data;
+                        2'b01: block_data[ 63: 32] = sb.store_buf[i].data;
+                        2'b10: block_data[ 95: 64] = sb.store_buf[i].data;
+                        2'b11: block_data[127: 96] = sb.store_buf[i].data;
+                    endcase
+
+                    $display("Writing Data: %h to Address: %h", sb.store_buf[i].data, sb.store_buf[i].addr);
+
+                    // 4) Write the updated 128-bit block back to memory
+                    main_memory.memArray[block_index] = block_data;
+
+                    // 5) Invalidate SB entry so we know it’s drained
+                    sb.store_buf[i].valid <= 1'b0;
+                end
+            end
+
             main_memory.memArray[0] <= cache_controller.cdata.data_mem[0];
             main_memory.memArray[1] <= cache_controller.cdata.data_mem[1];
             main_memory.memArray[2] <= cache_controller.cdata.data_mem[2];
             main_memory.memArray[3] <= cache_controller.cdata.data_mem[3];
+
+
         end
     end
+
     
 
+    //========================================================
+    // 9) Connect MEM->WB pipeline bus
+    //========================================================
     // The pipeline bus to WB
     assign mem_wb_bus_out.instruction = ex_mem_bus_in.instruction;
     assign mem_wb_bus_out.opcode      = ex_mem_bus_in.opcode;
@@ -168,30 +234,44 @@ module MEM(
     assign mem_wb_bus_out.wb_value    = finalValue;
 
     //========================================================
-    // 9) Stall Logic
+    // 10) Stall Logic
     //========================================================
-    // Stall if:
-    // - Cache is handling a miss (cpu_res.ready == 0)
-    // - Store Buffer is full (cannot push a new store)
-    // - Currently draining SB entry and cache is busy
+    // We stall if:
+    //   - The cache FSM isn't ready but we have a valid CPU request (load/store).
+    //   - The SB is full and we want to enqueue a store (store_hit_and_done).
+    //   - Possibly other conditions (e.g., store misses, etc.).
     assign stall = (
         (~cpu_res.ready && cpu_req.valid)
-        // Cache miss handling
-        // || (isStore && ~sb_push_ready)         // SB is full on store
+        || (store_hit_and_done && ~sb_enq_ready)
+        || (force_sb_drain)
     );
 
-    // print all signals
+    //========================================================
+    // 11) Debug Printing
+    //========================================================
     always_ff @(posedge clock) begin
-        if (`DEBUG) begin
-            $display("MEM----------------------------");
-            $display("Time: %0t | DEBUG: Ex_mem_bus_in = %p", $time, ex_mem_bus_in);
-            $display("Time: %0t | DEBUG: CPU_REQ = %p", $time, cpu_req);
-            $display("Time: %0t | DEBUG: MEM_REQ = %p", $time, mem_req);
-            $display("Time: %0t | DEBUG: MEM_DATA = %p", $time, mem_data);
-            $display("Time: %0t | DEBUG: CPU_RES = %p", $time, cpu_res);
-            $display("Time: %0t | DEBUG: MEMWBValue = %0d", $time, finalValue);
-            $display("MEM----------------------------");
-        end
+      if (`DEBUG) begin
+        $display("MEM----------------------------");
+        $display("Time: %0t | ex_mem_bus_in     = %p", $time, ex_mem_bus_in);
+        $display("Time: %0t | CPU_REQ          = %p", $time, cpu_req);
+        $display("Time: %0t | CPU_RES          = %p", $time, cpu_res);
+        $display("Time: %0t | (store_hit_done) = %b", $time, store_hit_and_done);
+        $display("Time: %0t | finalValue       = %0d", $time, finalValue);
+
+        // SB debug
+        $display("Time: %0t | SB EnqValid/Addr/Data/Ready = %b %h %h %b", 
+                  $time, sb_enq_valid, sb_enq_addr, sb_enq_data, sb_enq_ready);
+        $display("Time: %0t | SB DeqReq/Valid/Addr/Data  = %b %b %h %h", 
+                  $time, sb_deq_req, sb_deq_valid, sb_deq_addr, sb_deq_data);
+        $display("Time: %0t | sb_load_hit/data          = %b %h", 
+                  $time, sb_load_hit, sb_load_data);
+        $display("Time: %0t | sb_drain_done             = %b", $time, sb_drain_done);
+        $display("Time: %0t | force_sb_drain            = %b", $time, sb.full);
+        $display("Time: %0t | SB count/SBentry    = %0b %0b", $time, sb_count, ENTRY_COUNT);
+
+        $display("Time: %0t | STALL                    = %b", $time, stall);
+        $display("MEM----------------------------\n");
+      end
     end
 
 endmodule

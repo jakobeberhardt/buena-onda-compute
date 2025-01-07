@@ -1,91 +1,140 @@
-// StoreBuffer.sv
+`define DEBUG 0  // Set to 1 to enable debug prints, 0 to disable
+
+`include "../../interfaces/PipelineInterface.svh"
+
+
 module StoreBuffer #(
-    parameter int ENTRY_COUNT = 4
+  parameter ENTRY_COUNT = 4
 )(
-    input  logic        clock,
-    input  logic        reset,
+  input  logic                clock,
+  input  logic                reset,
 
-    // Push interface (from MEM stage for store hits)
-    input  logic        sb_push_valid,  // 1 = new store request
-    input  logic [31:0] sb_push_addr,   // store address
-    input  logic [31:0] sb_push_data,   // store data
-    output logic        sb_push_ready,  // 1 = buffer has space
+  // Enqueue interface
+  input  logic                enq_valid,      // Request to enqueue
+  input  logic [31:0]         enq_addr,
+  input  logic [31:0]         enq_data,
+  output logic                enq_ready,      // 1 if we can accept
 
-    // Drain interface (to write into cache data array)
-    output logic        sb_drain_valid, // 1 = has data to drain
-    output logic [31:0] sb_drain_addr,  // address to write
-    output logic [31:0] sb_drain_data,  // data to write
-    input  logic        sb_drain_ready, // 1 = can accept drain
+  // Dequeue/drain interface
+  input  logic                deq_req,        // Request to drain 1 entry
+  output logic [31:0]         deq_addr,
+  output logic [31:0]         deq_data,
+  output logic                deq_valid,      // 1 if there's an entry to drain
 
-    // Load bypass
-    input  logic [31:0] load_addr,
-    output logic [31:0] bypass_data,
-    output logic        bypass_hit
+  // For load forwarding
+  input  logic [31:0]         load_addr,
+  output logic [31:0]         sb_load_data,
+  output logic                sb_load_hit,
+  output logic [$clog2(ENTRY_COUNT+1)-1:0] count_out,
+  output logic full,
+
+  // For flushing (optional, e.g., drain or debug)
+  input  logic                flush
 );
 
-    typedef struct packed {
-        logic valid;
-        logic [31:0] addr;
-        logic [31:0] data;
-    } sb_entry_t;
+  
 
-    sb_entry_t buffer [ENTRY_COUNT];
-    int head, tail, count;
+  sb_entry_t store_buf[ENTRY_COUNT];
 
-    // Push logic: accept new store if buffer is not full
-    assign sb_push_ready = (count < ENTRY_COUNT);
+  // Head/tail for FIFO usage (or you could do a circular buffer)
+  int unsigned head, tail;
+  logic [$clog2(ENTRY_COUNT+1)-1:0] count; 
 
-    always_ff @(posedge clock or posedge reset) begin
-        if (reset) begin
-            for (int i = 0; i < ENTRY_COUNT; i++) begin
-                buffer[i].valid <= 1'b0;
-                buffer[i].addr  <= 32'h0;
-                buffer[i].data  <= 32'h0;
-            end
-            head <= 0;
-            tail <= 0;
-            count <= 0;
+
+
+  //--------------------------------------------------------------------------
+  // Enqueue logic
+  //--------------------------------------------------------------------------
+  always_ff @(posedge clock or posedge reset) begin
+    if (reset) begin
+      head  <= '0;
+      tail  <= '0;
+      count <= '0;
+      for (int i=0; i<ENTRY_COUNT; i++) begin
+        store_buf[i].valid <= 1'b0;
+      end
+    end else begin
+      // Flush logic (optional: clear the buffer)
+      if (flush) begin
+        head  <= '0;
+        tail  <= '0;
+        count <= '0;
+        for (int i=0; i<ENTRY_COUNT; i++) begin
+          store_buf[i].valid <= 1'b0;
         end
-        else begin
-            // Push new store into buffer
-            if (sb_push_valid && sb_push_ready) begin
-                buffer[tail].valid <= 1'b1;
-                buffer[tail].addr  <= sb_push_addr;
-                buffer[tail].data  <= sb_push_data;
-                tail <= (tail + 1) % ENTRY_COUNT;
-                count <= count + 1;
-            end
-
-            // Drain store from buffer into cache
-            if (sb_drain_valid && sb_drain_ready && count > 0) begin
-                buffer[head].valid <= 1'b0;
-                head <= (head + 1) % ENTRY_COUNT;
-                count <= count - 1;
-            end
+      end
+      else begin
+        // Enqueue
+        if (enq_valid && enq_ready) begin
+          store_buf[tail].valid <= 1'b1;
+          store_buf[tail].addr  <= enq_addr;
+          store_buf[tail].data  <= enq_data;
+          tail  <= (tail + 1) % ENTRY_COUNT;
+          count <= count + 1;
         end
+
+        // Dequeue
+        if (deq_req && deq_valid) begin
+            //$display("Dequeueing entry %0d", head);
+          // We assume we "pop" after reading out entry
+          store_buf[head].valid <= 1'b0;
+          head  <= (head + 1) % ENTRY_COUNT;
+          count <= count - 1;
+        end
+      end
     end
+  end
 
-    // Bypass logic: check if any store in buffer matches load address
-    logic [31:0] bypass_data_temp;
-    logic bypass_hit_temp;
+  // enq_ready = 1 if there's space in buffer
+  assign enq_ready = (count < ENTRY_COUNT);
 
-    always_comb begin
-        bypass_data_temp = 32'h0;
-        bypass_hit_temp = 1'b0;
-        for (int i = 0; i < ENTRY_COUNT; i++) begin
-            if (buffer[i].valid && (buffer[i].addr == load_addr)) begin
-                bypass_data_temp = buffer[i].data;
-                bypass_hit_temp = 1'b1;
-            end
-        end
+  // deq_valid = 1 if there's at least one entry to drain
+  assign deq_valid = (count > 0);
+
+  // The entry we would drain
+  assign deq_addr = store_buf[head].addr;
+  assign deq_data = store_buf[head].data;
+
+  //--------------------------------------------------------------------------
+  // Load forwarding: check if load_addr matches any entry
+  // For simplicity, we’ll just check all valid entries and pick the newest.
+  //--------------------------------------------------------------------------
+  logic        match_found;
+  logic [31:0] match_data;
+  logic [31:0] newest_idx;
+
+  always_comb begin
+    match_found = 1'b0;
+    match_data  = '0;
+    // In a real design, you'd pick the *newest* matching store in program order.
+    // Here, we do a simple search from tail backwards or head to tail.
+    for (int i = 0; i < ENTRY_COUNT; i++) begin
+        //$display("Checking entry %0d, with addr %0d and data %0d,valid = %0d, load addr: %0d",i, store_buf[i].addr, store_buf[i].data, store_buf[i].valid,load_addr );
+      if (store_buf[i].valid && (store_buf[i].addr == load_addr)) begin
+        match_found = 1'b1;
+        match_data  = store_buf[i].data;
+        // break on the most recent if you track an age field (not shown).
+      end
     end
+  end
 
-    assign bypass_data = bypass_data_temp;
-    assign bypass_hit  = bypass_hit_temp;
+  assign sb_load_hit  = match_found;
+  assign sb_load_data = match_data;
+  assign count_out    = count;
+  assign full         = (count == ENTRY_COUNT);
 
-    // Drain signals: valid if buffer is not empty
-    assign sb_drain_valid = (count > 0);
-    assign sb_drain_addr  = buffer[head].addr;
-    assign sb_drain_data  = buffer[head].data;
+  if (`DEBUG) begin
+    always @(posedge clock) begin
+      //print store buffer details
+        $display("==== Final Store Buffer ====");
+        $display("Head: %0b, Tail: %0b, Count: %0b, full: %0b, entry_count: %0b", head, tail, count, full, ENTRY_COUNT);
+        for (int i = 0; i < ENTRY_COUNT; i = i + 1) begin
+            $display("StoreBuffer[%0d] = %0p", i, store_buf[i]);
+        end
+        $display("==== Final Store Buffer ====");
+
+
+    end
+  end	
 
 endmodule

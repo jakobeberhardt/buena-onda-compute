@@ -51,7 +51,6 @@ module RISCVCPU_tb_branch_jump;
         //dut.regfile.Regs[7] = 64; 
 
         // -- Program: place instructions in IMem --
-        // instructions to test load hazard
         dut.imem.IMem[0] = 32'h00002083; // lw x1, 0(x0)
         dut.imem.IMem[1] = 32'h00a00113; // addi x2, x0, 10
         dut.imem.IMem[2] = 32'h00010263; // beq x2, x0, 4
@@ -75,6 +74,7 @@ module RISCVCPU_tb_branch_jump;
         //force cache data into main memory by writing exact lines of cache memory
         //Just For testing purposes
         dut.imem.IMem[18] = 32'h0000007f; // SPecial Instruction to Drain cache to DMEM
+        dut.imem.IMem[19] = 32'h0000007f; // SPecial Instruction to Drain cache to DMEM
 
 
         dut.mem_stage.main_memory.memArray[0][31:0] = 32'h00000005; // DMEM[0][Word0] = 5
@@ -145,7 +145,7 @@ module RISCVCPU_tb_branch_jump;
                 endcase
                 // Display the word with proper indexing
                 $display("memArray[%0d] word%0d [%0d:%0d] = %0d", 
-                        i * 4 + j, j, msb, lsb, current_word);
+                        (i * 4 + j) * 4, j, msb, lsb, current_word);
             end
         end
     endtask
@@ -179,7 +179,7 @@ module RISCVCPU_tb_branch_jump;
                 endcase
                 // Display the word with proper indexing
                 $display("CacheArray[%0d] word%0d [%0d:%0d] = %0d", 
-                        i * 4 + j, j, msb, lsb, current_word);
+                        (i * 4 + j) * 4, j, msb, lsb, current_word);
             end
         end
     endtask

@@ -1,4 +1,13 @@
 module IMemory(
+    input  logic [31:0] addr,
+    output logic [31:0] dataOut
+);
+    logic [31:0] IMem[0:1023];
+    assign dataOut = IMem[addr];
+endmodule
+
+/*
+module IMemory(
     input  logic        clock,
     input  logic        reset,
     input  logic [31:0] addr,
@@ -32,3 +41,5 @@ module IMemory(
 
 
 endmodule
+
+*/

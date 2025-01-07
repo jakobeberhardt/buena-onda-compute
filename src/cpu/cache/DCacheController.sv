@@ -12,7 +12,17 @@ module dm_cache_fsm (
   input  cpu_req_type cpu_req,    // CPU request input (CPU->cache)
   input  mem_data_type mem_data,  // memory response (memory->cache)
   output mem_req_type  mem_req,   // memory request (cache->memory)
-  output cpu_result_type cpu_res  // cache result (cache->CPU)
+  output cpu_result_type cpu_res,  // cache result (cache->CPU)
+
+  //======== SB Drain Request ======== 
+  input  logic          sb_drain_valid,  // 1 => SB wants to write to cache
+  input  logic [31:0]   sb_drain_addr,
+  input  logic [31:0]   sb_drain_data,
+  output logic          sb_drain_done,   // 1 => drain write completed this cycle
+
+  //foce drain
+  input logic force_drain
+
 );
 
 
@@ -21,7 +31,8 @@ module dm_cache_fsm (
     idle,
     compare_tag,
     allocate,
-    write_back
+    write_back,
+    drain_store  // for draining from SB
   } cache_state_type;
 
   // FSM state register
@@ -47,6 +58,38 @@ module dm_cache_fsm (
   assign mem_req = v_mem_req;
   assign cpu_res = v_cpu_res;
 
+
+  // We'll also handle the address/data that "wins" arbitration
+  logic        use_cpu_req;   // 1 => we are servicing the CPU, 0 => SB drain
+  logic [31:0] active_addr;
+  logic [31:0] active_wdata;  // the data to be (potentially) written
+
+
+  //------------------------------------------------------------------------
+  // 0) ARBITRATION: decide who the FSM is servicing this cycle
+  //------------------------------------------------------------------------
+  // Priority example: CPU > SB.except if store buffer is full
+  // If CPU is valid, we ignore SB drain for this cycle (unless we go idle after).
+  always_comb begin
+    if (cpu_req.valid && !force_drain) begin
+      use_cpu_req  = 1'b1;
+      active_addr  = cpu_req.addr;
+      active_wdata = cpu_req.data;
+    end
+    else if (sb_drain_valid) begin
+      use_cpu_req  = 1'b0;
+      active_addr  = sb_drain_addr;
+      active_wdata = sb_drain_data;
+    end
+    else begin
+      use_cpu_req  = 1'b0;
+      active_addr  = 32'b0;
+      active_wdata = 32'b0;
+    end
+  end
+
+
+
   // Combinational FSM
   always_comb begin
     // ------------------------- default values for all signals -------------------------
@@ -62,23 +105,25 @@ module dm_cache_fsm (
     // By default, read from the tag memory
     tag_req.we = '0;
     // Direct-mapped index for tag
-    tag_req.index = cpu_req.addr[5:4];
+    tag_req.index = active_addr[5:4];
 
     // By default, read from cache data
     data_req.we = '0;
     // Direct-mapped index for cache data
-    data_req.index = cpu_req.addr[5:4];
+    data_req.index = active_addr[5:4];
 
     // Prepare the data_write by copying data_read
     data_write = data_read;
-    case (cpu_req.addr[3:2])
-      2'b00: data_write[31:0]   = cpu_req.data;
-      2'b01: data_write[63:32]  = cpu_req.data;
-      2'b10: data_write[95:64]  = cpu_req.data;
-      2'b11: data_write[127:96] = cpu_req.data;
+    case (active_addr[3:2])
+      2'b00: data_write[31:0]   = active_wdata;
+      2'b01: data_write[63:32]  = active_wdata;
+      2'b10: data_write[95:64]  = active_wdata;
+      2'b11: data_write[127:96] = active_wdata;
     endcase
 
     // Read out the correct word (32-bit) from the cache line (to CPU)
+    // For CPU loads, we read out data
+    // (We'll do finalValue forwarding in MEM stage if SB needed.)
     case (cpu_req.addr[3:2])
       2'b00: v_cpu_res.data = data_read[31:0];
       2'b01: v_cpu_res.data = data_read[63:32];
@@ -87,13 +132,16 @@ module dm_cache_fsm (
     endcase
 
     // Default memory request address (taken from CPU request)
-    v_mem_req.addr  = cpu_req.addr;
+    v_mem_req.addr  = active_addr;
     // Default memory request data (used in write)
     v_mem_req.data  = data_read;
     // Default memory request is read
     v_mem_req.rw    = '0;
     // Default memory request not valid
     v_mem_req.valid = '0;
+
+    // Default SB drain done
+    sb_drain_done = 1'b0;
 
     // ------------------------------------ Cache FSM ----------------------------------
     case (rstate)
@@ -103,8 +151,36 @@ module dm_cache_fsm (
       //--------------------------------------------------------------------------
       idle: begin
         // If there is a CPU request, then compare cache tag
-        if (cpu_req.valid) begin
+        // If either CPU or SB presents a request
+        if (use_cpu_req) begin
+          // CPU request
           vstate = compare_tag;
+        end
+        else if (sb_drain_valid) begin
+            //$display("Will Drain store: addr=%0h, data=%0h", sb_drain_addr, sb_drain_data);
+            // Mark line dirty
+          tag_req.we     = 1'b1;
+          tag_write.tag   = sb_drain_addr[TAGMSB:TAGLSB];    // keep old tag
+          tag_write.valid = 1'b1;
+          tag_write.dirty = 1'b1;
+
+          // Write data
+          data_req.we    = 1'b1;
+          //data_write     = data_read;  // then we override correct word as needed above
+
+          // Indicate to SB that this drain is done
+          sb_drain_done = 1'b1;
+
+          // Next cycle, return to idle
+          vstate = idle;
+
+          //$display("Drain store: addr=%0h, data=%0h, data_write=%0h", sb_drain_addr, sb_drain_data, data_write);
+            // Start draining from SB
+            vstate = idle;
+          end
+        else begin
+          // no requests, stay idle
+          vstate = idle;
         end
       end
 
@@ -112,16 +188,18 @@ module dm_cache_fsm (
       // compare_tag state
       //--------------------------------------------------------------------------
       compare_tag: begin
+        //$display("Comparing tag: addr=%0h, data=%0h, tag_read=%0h, mem req valid=%0d", active_addr, active_wdata, tag_read, mem_req.valid);
         // cache hit (tag match and cache entry is valid)
         if ((cpu_req.addr[TAGMSB:TAGLSB] == tag_read.tag) &&
             (tag_read.valid)) begin
-          v_cpu_res.ready = '1;
+          v_cpu_res.ready = '1; // Pipeline sees done
 
           // write hit
           if (cpu_req.rw) begin
             // read/modify cache line
+            // WIth store buffer we do not write now, but only when we drain
             tag_req.we    = '1;
-            data_req.we   = '1;
+            //data_req.we   = '1;
             // no change in tag
             tag_write.tag   = tag_read.tag;
             tag_write.valid = '1;
@@ -160,6 +238,8 @@ module dm_cache_fsm (
       // allocate state (waiting for a new cache line from memory)
       //--------------------------------------------------------------------------
       allocate: begin
+        //$display("Allocate: addr=%0h, data=%0h, mem_data_ready=%0d, mem_req_valid=%0d", v_mem_req.addr, data_read, mem_data.ready, mem_req.valid);
+        v_mem_req.valid = '1;
         // memory controller has responded
         if (mem_data.ready) begin
           // re-compare tag for write miss (need to modify correct word)
@@ -175,6 +255,8 @@ module dm_cache_fsm (
       // write_back state (writing back dirty line to memory)
       //--------------------------------------------------------------------------
       write_back: begin
+        //$display("Write back: addr=%0h, data=%0h, mem_data_ready=%0d, mem_req_valid=%0d", v_mem_req.addr, data_read, mem_data.ready, mem_req.valid);
+        v_mem_req.rw = '1; // Write back
         // write back is completed
         if (mem_data.ready) begin
           // issue new memory request (allocating a new line)
@@ -182,6 +264,31 @@ module dm_cache_fsm (
           v_mem_req.rw    = '0; // Read
           vstate          = allocate;
         end
+      end
+
+      //-------------------------------------------------------------------------
+      // drain_store (SB flow)
+      //-------------------------------------------------------------------------
+      drain_store: begin
+        /*// We read the tag for sb_drain_addr, compare, then do a 1-cycle store to data array.
+        
+        // Mark line dirty
+        tag_req.we     = 1'b1;
+        tag_write.tag   = sb_drain_addr[TAGMSB:TAGLSB];     // keep old tag
+        tag_write.valid = 1'b1;
+        tag_write.dirty = 1'b1;
+
+        // Write data
+        data_req.we    = 1'b1;
+        data_write     = data_read;  // then we override correct word as needed above
+
+        // Indicate to SB that this drain is done
+        sb_drain_done = 1'b1;*/
+
+        // Next cycle, return to idle
+        vstate = idle;
+
+        //$display("Drain store: addr=%0h, data=%0h", sb_drain_addr, sb_drain_data);
       end
 
     endcase
@@ -196,6 +303,23 @@ module dm_cache_fsm (
     end
     else begin
       rstate <= vstate;
+    end
+  end
+
+  //print cache state
+  always_ff @(posedge clock) begin
+    if (`DEBUG) begin
+      $display("---Cache State---");
+      $display("Cache State: %0d", rstate);
+      $display("SB Drain Valid: %0d", sb_drain_valid);
+      $display("SB Drain Addr: %0h", sb_drain_addr);
+      $display("SB Drain Data: %0h", sb_drain_data);
+      $display("CPU Req Valid: %0d", cpu_req.valid);
+      $display("CPU Force Drain: %0d", force_drain);
+      $display("CPU Req Addr: %0h", cpu_req.addr);
+      $display("Mem req %p", mem_req);
+      $display("Mem data %p", mem_data);
+      $display("---Cache State---");
     end
   end
 

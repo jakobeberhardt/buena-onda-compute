@@ -46,6 +46,7 @@ module DMemory(
 
       // If write, do the actual store near the end
       if (rstate == M_WAIT && waitCount == 1 && mem_req.rw == 1'b1) begin
+        //$display("Writing to memArray[%0d] = %0h", mem_req.addr[5:4], mem_req.data);
         memArray[mem_req.addr[5:4]] <= mem_req.data;
       end
     end
@@ -80,5 +81,16 @@ module DMemory(
       end
     endcase
   end
+
+  //Print useful values
+  always_ff @(posedge clock) begin
+    if(`DEBUG) begin
+      $display("Mem req=%p", mem_req);
+      $display("Mem data=%p", mem_data);
+      $display("Mem state=%d" , rstate);
+    end
+  end 
+  
+
 
 endmodule
