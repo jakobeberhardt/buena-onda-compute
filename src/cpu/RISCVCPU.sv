@@ -54,6 +54,7 @@ module RISCVCPU(
         .clock(clock),
         .reset(reset),
         .stall(ctrl_signals.stall),
+        .iCacheStall(iCacheStall),
         .takebranch(ctrl_signals.takebranch),
         .branch_offset(id_ex_bus_in.branch_offset),
         .id_ex_bus_in(id_ex_bus_in),
@@ -162,7 +163,7 @@ module RISCVCPU(
         .addr(iCache_memAddr),
         .dataOut(iMem_data)
     );
-    assign if_id_bus_in.instruction = iCache_instr;
+    assign if_id_bus_in.instruction = iCacheStall ? 32'h00000013 : iCache_instr;
 
     
     //Set control signals
