@@ -21,6 +21,7 @@ module RISCVCPU(
     logic takebranch;
     logic load_use_stall;
     logic dCacheStall;
+    logic iCacheStall;
     initial load_use_stall = 0;
     initial takebranch = 0;
     initial bypassAfromMEM = 0;
@@ -152,7 +153,7 @@ module RISCVCPU(
         .reset(reset),
         .addr_in(if_stage.PC >> 2),
         .data_out(iCache_instr),
-
+        .iCache_stall(iCacheStall),
         .mem_addr(iCache_memAddr),
         .mem_dataOut(iMem_data)
     );
@@ -166,18 +167,18 @@ module RISCVCPU(
     
     //Set control signals
     always_comb begin
-        ctrl_signals.takebranch = takebranch;
-        ctrl_signals.dcache_stall = dCacheStall;
-        ctrl_signals.load_use_stall = load_use_stall;
-        ctrl_signals.stall      = load_use_stall | dCacheStall;
+        ctrl_signals.takebranch    = takebranch;
+        ctrl_signals.dcache_stall  = dCacheStall;
+        ctrl_signals.load_use_stall= load_use_stall;
+        ctrl_signals.stall         = load_use_stall | dCacheStall | iCacheStall;
     end
+
 
     always_ff @(posedge clock) begin
        if (`DEBUG) begin
             $display("Stalls----------------------------");
             $display("Time: %0t | DEBUG: stall signal = %0d", $time, ctrl_signals.stall);
             $display("                   takebranch   = %0d", ctrl_signals.takebranch);
-            $display("                   inst valid   = %0d", ctrl_signals.icache_stall);
             $display("                   dCache stall = %0d", dCacheStall);
             $display("                   load use stall = %0d", load_use_stall);
             $display("Stalls----------------------------");
