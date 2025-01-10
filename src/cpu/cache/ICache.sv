@@ -8,7 +8,6 @@ module ICache(
     input  logic [31:0] mem_dataOut
 );
 
-
     assign mem_addr  = addr_in;  
     assign data_out  = mem_dataOut;
     assign iCache_stall = 0;

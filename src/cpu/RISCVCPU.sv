@@ -170,7 +170,7 @@ module RISCVCPU(
         ctrl_signals.takebranch    = takebranch;
         ctrl_signals.dcache_stall  = dCacheStall;
         ctrl_signals.load_use_stall= load_use_stall;
-        ctrl_signals.stall         = load_use_stall | dCacheStall | iCacheStall;
+        ctrl_signals.stall         = load_use_stall | dCacheStall;
     end
 
 
