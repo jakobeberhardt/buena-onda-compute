@@ -7,43 +7,53 @@ module IF(
     input  logic clock,
     input  logic reset,
     input  logic stall,
+    input  logic iCacheStall,   // <--- NEW: iCache stall signal
     input  logic takebranch,
     input  logic [31:0] branch_offset,
     input  wire  id_ex_bus_t id_ex_bus_in,
-    input logic [31:0] JalAddr,
+    input  logic [31:0] JalAddr,
     output if_id_bus_t if_id_bus_out
 );
 
     logic [31:0] PC;
-    // initial PC = 0;
 
-    always @(posedge clock or posedge reset) begin
+    always_ff @(posedge clock or posedge reset) begin
         if (reset) begin
-            PC <= 0;
-        end else if (!stall) begin
-            if (takebranch) 
-                if (id_ex_bus_in.opcode == JALR) 
-                    PC <= JalAddr;
-                else
-                    PC <= (PC - 4) + branch_offset;
-            else 
-                PC <= PC + 4;
+            PC <= 32'd0;
+        end 
+        else if (takebranch) begin
+            // Handle branch or JALR
+            if (id_ex_bus_in.opcode == JALR) 
+                PC <= JalAddr;
+            else
+                PC <= (PC - 32'd4) + branch_offset;
+        end 
+        else if (!stall) begin
+            // Normal pipeline not stalled by load-use or D‐cache
+            // Check iCacheStall to freeze the PC on I‐cache miss
+            if (iCacheStall)
+                PC <= PC;          // freeze PC
+            else
+                PC <= PC + 32'd4;  // increment PC
         end
     end
 
-
-   always @(posedge clock) begin
+    // Debug prints
+    always_ff @(posedge clock) begin
         if (`DEBUG) begin
             $display("IF----------------------------");
-            $display("Time: %0t | DEBUG: BEQ, PC = %0d, takebranch = %0d, branch_offset = %0d", $time, PC, takebranch, branch_offset);
-            $display("Time: %0t | DEBUG: JALR, id_ex_bus_in.decodeA = %0d, id_ex_bus_in.imm_i = %0d", $time, id_ex_bus_in.decodeA, id_ex_bus_in.imm_i);
+            $display("Time: %0t | PC = %0d, takebranch = %0d, branch_offset = %0d",
+                     $time, PC, takebranch, branch_offset);
+            $display("Time: %0t | JALR? opcode=%0h, JalAddr=%0d", 
+                     $time, id_ex_bus_in.opcode, JalAddr);
+            $display("Time: %0t | iCacheStall=%0d, stall=%0d",
+                     $time, iCacheStall, stall);
             $display("IF----------------------------");
         end
     end
 
-
-    // Instruction fetched by IMemory at top-level
-    // The top-level connects IMemory's dataOut to if_id_bus_out.instruction.
-    // Here we just define the structure. Actual assignment done at top-level through wires.
+    // The actual instruction fed to ID is handled at top-level by either:
+    //   if_id_bus_in.instruction = iCacheStall ? 32'h00000013 : iCache_instr;
+    // or a similar mux.  That way you can inject NOPs on iCacheStall.
 
 endmodule
