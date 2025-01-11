@@ -47,7 +47,7 @@ module DMemory(
       // If write, do the actual store near the end
       if (rstate == M_WAIT && waitCount == 1 && mem_req.rw == 1'b1) begin
         //$display("Writing to memArray[%0d] = %0h", mem_req.addr[5:4], mem_req.data);
-        memArray[mem_req.addr[5:4]] <= mem_req.data;
+        memArray[mem_req.addr[13:4]] <= mem_req.data;
       end
     end
   end
@@ -75,7 +75,7 @@ module DMemory(
 
           // If read, pass read data
           if (mem_req.rw == 1'b0) begin
-            mem_data.data = memArray[mem_req.addr[5:4]];
+            mem_data.data = memArray[mem_req.addr[13:4]];
           end
         end
       end
