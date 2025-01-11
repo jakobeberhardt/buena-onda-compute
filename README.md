@@ -36,7 +36,6 @@ https://luplab.gitlab.io/rvcodecjs/
 - Virtual Memory(ITlb, DTlb, Tlb Miss and write, superv/user, ptw, iret, csrrw )
 - Branch Predictor
 - OoO
-- Handle accessing word from different cache lines
 
 
 # Code Improvement, works but coding style could be improved:

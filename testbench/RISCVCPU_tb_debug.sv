@@ -40,8 +40,8 @@ module RISCVCPU_tb_debug;
 
         // -- Program: place instructions in IMem --
         ///dut.imem.IMem[0] = 32'h00002083; // lw x1, 0(x0)
-        //dut.imem.IMem[1] = 32'h00402103; // lw x2, 4(x0)
-        //dut.imem.IMem[1] = 32'h00502023; // sw   x5, 0(x0)
+        dut.imem.IMem[0] = 32'h00402083; // lw x1, 4(x0)
+        dut.imem.IMem[1] = 32'h00102423; // sw   x1, 8(x0)
         //debugging branch
         /*dut.imem.IMem[0] = 32'h00002083; // lw x1, 0(x0)
         dut.imem.IMem[1] = 32'h00a00113; // addi x2, x0, 10
@@ -67,14 +67,30 @@ module RISCVCPU_tb_debug;
         dut.imem.IMem[5] = 32'h00102a23; // sw x1, 20(x0)
         dut.imem.IMem[6] = 32'h00102c23; // sw x1, 24(x0)*/
 
-        //Testing cache
-        dut.imem.IMem[0] = 32'h00002083; // lw x1, 0(x0)
-        dut.imem.IMem[1] = 32'h00302223; // sw x3, 4(x0)
-        dut.imem.IMem[2] = 32'h04102023; // sw x1, 64(x0)
-        //dut.imem.IMem[3] = 32'h00000013;
-        //dut.imem.IMem[4] = 32'h04002483; // lw x9, 64(x0)
-        //force cache data into main memory by writing exact lines of cache memory
-        dut.imem.IMem[5] = 32'h0000007f; // SPecial Instruction to Drain cache to DMEM
+        /*//Testing cache
+        // [0] addi x1, x0, 0  (x1=0)
+        dut.imem.IMem[0] = 32'h00000093; 
+        // [1] addi x2, x0, 0  (x2=0)
+        dut.imem.IMem[1] = 32'h00000113;
+        // [2] addi x3, x0, 65 (x3=65)
+        dut.imem.IMem[2] = 32'h04100193;
+
+        // loop:
+        // [3] add x1, x1, x2   (sum += i)
+        dut.imem.IMem[3] = 32'h002080b3;
+        // [4] addi x2, x2, 1   (i++)
+        dut.imem.IMem[4] = 32'h00110113;
+        // [5] beq x2, x3, +3   -> jump to [8] if x2 == x3
+        dut.imem.IMem[5] = 32'h00310663; 
+        // [6] beq x0, x0, -3   -> jump back to [3], unconditional
+        dut.imem.IMem[6] = 32'h00c00067;
+
+        // done:
+        // [7] nop
+        dut.imem.IMem[7] = 32'h00000013;
+        // [8] nop
+        dut.imem.IMem[8] = 32'h00000013;*/
+        dut.imem.IMem[9] = 32'h0000007f; // SPecial Instruction to Drain cache to DMEM
 
 
         // SB test
@@ -103,7 +119,7 @@ module RISCVCPU_tb_debug;
                                 temp_DMem_words[4*i]};
         end
 
-        dut.mem_stage.main_memory.memArray[0][31:0] = 32'h00000005; // DMEM[0][Word0] = 5
+        dut.mem_stage.main_memory.memArray[0][63:32] = 32'h00000005; // DMEM[0][Word0] = 5
 
     end
 
@@ -119,7 +135,7 @@ module RISCVCPU_tb_debug;
         reset = 0;
 
         // Run Simulation for Sufficient Cycles to Execute Instructions
-        repeat (50) @(posedge clock); 
+        repeat (200) @(posedge clock); 
         
         print_mainMem();
         print_cacheMem();

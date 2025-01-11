@@ -65,6 +65,9 @@ module dm_cache_fsm (
   logic [31:0] active_wdata;  // the data to be (potentially) written
 
 
+  logic [31:0] write_back_addr;  // Register to hold the address during write-back
+
+
   //------------------------------------------------------------------------
   // 0) ARBITRATION: decide who the FSM is servicing this cycle
   //------------------------------------------------------------------------
@@ -112,6 +115,8 @@ module dm_cache_fsm (
     // Direct-mapped index for cache data
     data_req.index = active_addr[5:4];
 
+
+
     // Prepare the data_write by copying data_read
     data_write = data_read;
     case (active_addr[3:2])
@@ -142,6 +147,13 @@ module dm_cache_fsm (
 
     // Default SB drain done
     sb_drain_done = 1'b0;
+
+    if (rstate == write_back) begin
+      v_mem_req.addr = write_back_addr;
+    end
+    else begin
+      v_mem_req.addr  = active_addr;
+    end
 
     // ------------------------------------ Cache FSM ----------------------------------
     case (rstate)
@@ -226,7 +238,10 @@ module dm_cache_fsm (
           end else begin
             // miss with a dirty line
             // write back address
-            v_mem_req.addr = { tag_read.tag, cpu_req.addr[TAGLSB-1:0] };
+            //write_back_addr = { tag_read.tag, active_addr[TAGLSB-1:0] };
+
+            //v_mem_req.addr = write_back_addr; // Use the captured address
+            $display("Time: %0t | Write back in compare : addr=%0h, data=%0h",$time, v_mem_req.addr, data_read);
             v_mem_req.rw   = '1; // Write back
             // wait until write is completed
             vstate = write_back;
@@ -255,8 +270,10 @@ module dm_cache_fsm (
       // write_back state (writing back dirty line to memory)
       //--------------------------------------------------------------------------
       write_back: begin
-        //$display("Write back: addr=%0h, data=%0h, mem_data_ready=%0d, mem_req_valid=%0d", v_mem_req.addr, data_read, mem_data.ready, mem_req.valid);
+        $display("Time: %0t | Write back: addr=%0h, data=%0h, mem_data_ready=%0d, mem_req_valid=%0d",$time, write_back_addr, data_read, mem_data.ready, mem_req.valid);
         v_mem_req.rw = '1; // Write back
+        v_mem_req.addr = write_back_addr; // Ensure we're using the correct address
+
         // write back is completed
         if (mem_data.ready) begin
           // issue new memory request (allocating a new line)
@@ -300,14 +317,22 @@ module dm_cache_fsm (
   always_ff @(posedge clock) begin
     if (reset) begin
       rstate <= idle;
+        write_back_addr <= 32'b0; // **Reset the write_back_addr**
+
     end
     else begin
       rstate <= vstate;
+      if ((rstate == compare_tag) && (vstate == write_back)) begin
+        write_back_addr <= { tag_read.tag, active_addr[TAGLSB-1:0] };
+      end
     end
   end
 
   //print cache state
   always_ff @(posedge clock) begin
+    if (rstate == write_back) begin
+      //$display("Write back: addr=%0h, data=%0h", mem_req.addr, data_read);
+    end
     if (`DEBUG) begin
       $display("---Cache State---");
       $display("Cache State: %0d", rstate);

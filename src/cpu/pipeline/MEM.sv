@@ -150,6 +150,9 @@ module MEM(
     assign sb_enq_data  = cpu_req.data;
 
 
+    
+
+
 
 
 
@@ -177,11 +180,13 @@ module MEM(
     end
 
     //Flush the cache, (For testing purposes)
+    int sb_flushed = 0;
 
 
     always_ff @(posedge clock) begin
     // Suppose you have a special opcode to dump SB to memory
         if (ex_mem_bus_in.opcode == DRAIN_CACHE) begin
+            sb_flushed <= 1;
             // Iterate over every SB entry
             for (int i = 0; i < sb.ENTRY_COUNT; i++) begin
 
@@ -212,13 +217,54 @@ module MEM(
                     sb.store_buf[i].valid <= 1'b0;
                 end
             end
+        end
+    end
 
-            main_memory.memArray[0] <= cache_controller.cdata.data_mem[0];
-            main_memory.memArray[1] <= cache_controller.cdata.data_mem[1];
-            main_memory.memArray[2] <= cache_controller.cdata.data_mem[2];
-            main_memory.memArray[3] <= cache_controller.cdata.data_mem[3];
+    always @(posedge clock) begin
+        if (sb_flushed) begin
+            for (int i = 0; i < 4; i++) begin
+                // "tag_mem[i]" is the tag info for index i
+                automatic cache_tag_type   curTag   = cache_controller.ctag.tag_mem[i];
+                automatic cache_data_type  curData  = cache_controller.cdata.data_mem[i];
+                automatic logic [127:0] old_data ;
+                automatic logic [127:0] new_data ;
 
+                if (curTag.valid && curTag.dirty) begin
+                    //---------------------------------------
+                    // 2A) Compute the block address from (tag + index)
+                    //---------------------------------------
+                    // If your index bits are [5:4], i is 2 bits wide
+                    // If your tag bits are [31:6], that is curTag.tag
+                    // This concatenation is an example:
+                    logic [31:0] block_addr;
+                    block_addr[31:6] = curTag.tag;          // Tag
+                    block_addr[5:4]  = i[1:0];    // Index
+                    block_addr[3:0]  = 4'b0;                // Offset
 
+                    $display("Flushing Cache Line %0d: Writing Data %h to Address %h", 
+                            i, curData, block_addr);
+
+                    //---------------------------------------
+                    // 2B) Overwrite the entire 128-bit block in memory
+                    //---------------------------------------
+                    // read the old block from memory
+                    old_data = main_memory.memArray[block_addr[31:4]];
+
+                    // replace it with the line data
+                    new_data = curData;  // entire 128-bit line
+
+                    // write back to main memory
+                    main_memory.memArray[block_addr[31:4]] = new_data;
+
+                    //---------------------------------------
+                    // 2C) Clear the dirty bit so we don’t keep re-writing
+                    //---------------------------------------
+                    // Because you are using a single-port tag memory from the FSM,
+                    // you typically need to do a write via the 'tag_req' interface.
+                    // As a hack/test, you can do direct assignment if it’s a reg:
+                    cache_controller.ctag.tag_mem[i].dirty <= 1'b0;
+                end
+            end
         end
     end
 

@@ -14,24 +14,26 @@ module DMemory(
     output mem_data_type  mem_data
 );
 
-  // FSM that enforces 5-cycle latency
-  // Memory array
+  // Memory array with 1024 entries (10-bit index: [13:4])
   cache_data_type memArray[0:1023];
 
+  // FSM states
   typedef enum logic [1:0] { M_IDLE, M_WAIT } mstate_t;
   mstate_t rstate, vstate;
 
+  // Wait counter for latency (5 cycles)
   logic [2:0] waitCount;
+
+  // Buffer for read data (optional, depending on design)
   logic [127:0] read_buffer;
 
-  // -----------
-  // Next-state logic
-  // -----------
+  // Initialize memory on reset
   always_ff @(posedge clock or posedge reset) begin
     if (reset) begin
       rstate     <= M_IDLE;
       waitCount  <= 0;
       read_buffer <= '0;
+      // Initialize memArray to zero (optional)
     end
     else begin
       rstate <= vstate;
@@ -46,12 +48,17 @@ module DMemory(
 
       // If write, do the actual store near the end
       if (rstate == M_WAIT && waitCount == 1 && mem_req.rw == 1'b1) begin
-        //$display("Writing to memArray[%0d] = %0h", mem_req.addr[5:4], mem_req.data);
-        memArray[mem_req.addr[5:4]] <= mem_req.data;
+        logic [9:0] block_index;
+        block_index = mem_req.addr[13:4]; // Corrected indexing
+
+        $display("Time: %0t | Writing to memArray[%0d] = %0h, address = %0d",
+                 $time, block_index, mem_req.data, mem_req.addr);
+        memArray[block_index] <= mem_req.data;
       end
     end
   end
 
+  // Combinational logic for FSM and memory response
   always_comb begin
     // Default outputs
     mem_data.data  = '0;
@@ -61,7 +68,7 @@ module DMemory(
     case (rstate)
       M_IDLE: begin
         if (mem_req.valid) begin
-          // Move to WAIT
+          // Move to WAIT state
           vstate = M_WAIT;
         end
       end
@@ -75,22 +82,22 @@ module DMemory(
 
           // If read, pass read data
           if (mem_req.rw == 1'b0) begin
-            mem_data.data = memArray[mem_req.addr[5:4]];
+            logic [9:0] block_index;
+            block_index = mem_req.addr[13:4]; // Corrected indexing
+            mem_data.data = memArray[block_index];
           end
         end
       end
     endcase
   end
 
-  //Print useful values
+  // Debug Printing
   always_ff @(posedge clock) begin
     if(`DEBUG) begin
       $display("Mem req=%p", mem_req);
       $display("Mem data=%p", mem_data);
-      $display("Mem state=%d" , rstate);
+      $display("Mem state=%d", rstate);
     end
   end 
-  
-
 
 endmodule

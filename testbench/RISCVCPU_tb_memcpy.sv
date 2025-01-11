@@ -1,7 +1,7 @@
 `define DEBUG 0  // Set to 1 to enable debug prints, 0 to disable
 `timescale 1ns/1ps
 
-module RISCVCPU_tb_dcache_store_buf;
+module RISCVCPU_tb_memcpy;
 
     // Clock and Reset Signals
     logic clock;
@@ -22,8 +22,12 @@ module RISCVCPU_tb_dcache_store_buf;
         forever #5 clock = ~clock; // Toggle clock every 5ns
     end
 
+    initial begin
+        $dumpfile("RISCVCPU_tb_memcpy.vcd");
+        $dumpvars(0, RISCVCPU_tb_memcpy);
+    end
+
     typedef bit [31:0] word_type;
-    typedef bit [127:0] cache_data_type;
 
     // Temporary array to hold 32-bit words
     word_type temp_DMem_words [0:4095]; 
@@ -39,7 +43,7 @@ module RISCVCPU_tb_dcache_store_buf;
         end
 
         // Load 32-bit words from the data file
-        $readmemh("testbench/data/dmem.dat", temp_DMem_words);
+        // $readmemh("testbench/data/dmem.dat", temp_DMem_words);
 
         // Pack every four 32-bit words into one 128-bit block
         for (int i = 0; i < 1024; i++) begin
@@ -50,28 +54,38 @@ module RISCVCPU_tb_dcache_store_buf;
         end
 
         // -- Program: place instructions in IMem --
-        //Testing Storebuffer
-        dut.imem.IMem[0] = 32'h00002083; // lw x1, 0(x0)
-        dut.imem.IMem[1] = 32'h00108133; // add x2, x1, x1
-        dut.imem.IMem[2] = 32'h00202223; // sw x2, 4(x0)
-        dut.imem.IMem[3] = 32'h00402183; // lw x3, 4(x0)
-        dut.imem.IMem[4] = 32'h00118233; // add x4, x3, x1
-        dut.imem.IMem[5] = 32'h00402423; // sw x4, 8(x0)
-        dut.imem.IMem[6] = 32'h00c00293; // addi x5, x0, 12
-        dut.imem.IMem[7] = 32'h00502623; // sw x5, 12(x0)
-        dut.imem.IMem[8] = 32'h01000313; // addi x6, x0, 16
-        dut.imem.IMem[9] = 32'h00602823; // sw x6, 16(x0)
-        dut.imem.IMem[10] = 32'h01002383; // lw x7, 16(x0)
-        dut.imem.IMem[11] = 32'h04000413; // addi x8, x0, 64
-        dut.imem.IMem[12] = 32'h04d02023; // sw x13, 64(x0)
-        dut.imem.IMem[13] = 32'h04002483; // lw x9, 64(x0)
-        dut.imem.IMem[14] = 32'h0000007f; // SPecial Instruction to Drain cache to DMEM
-        dut.imem.IMem[15] = 32'h0000007f; // SPecial Instruction to Drain cache to DMEM
+        //Testing Mem copy
+        // Initialization of Registers and Constants
+        dut.imem.IMem[0]  = 32'h00000093; // ADDI x1, x0, 0         # Initialize i = 0
+        dut.imem.IMem[1]  = 32'h08000113; // ADDI x2, x0, 128       # Set loop limit r2 = 128
+        dut.imem.IMem[2]  = 32'h00500193; // ADDI x3, x0, 5         # Load constant 5 into r3
+        dut.imem.IMem[3]  = 32'h00000313; // ADDI x6, x0, 0         # Set base address of a (r6 = 0)
+        dut.imem.IMem[4]  = 32'h20000393; // ADDI x7, x0, 512       # Set base address of b (r7 = 512)
 
-        dut.mem_stage.main_memory.memArray[0][31:0] = 32'h00000005; // DMEM[0][Word0] = 5
-        
-        
-        
+        // First Loop: for(i=0; i<128; i++) { a[i] = 5; }
+        dut.imem.IMem[5]  = 32'h00332023; // SW x3, 0(x6)          # Store 5 into a[i]
+        dut.imem.IMem[6]  = 32'h00430313; // ADDI x6, x6, 4         # Increment pointer a (r6 += 4)
+        dut.imem.IMem[7]  = 32'h00108093; // ADDI x1, x1, 1         # Increment i (i++)
+        dut.imem.IMem[8]  = 32'h00208463; // BEQ x1, x2, 8          # If i == 128, branch to address 40
+        dut.imem.IMem[9]  = 32'h01400067; // JALR x0, 20(x0)           # Jump back to address 20
+
+        // Reset Registers for Second Loop
+        dut.imem.IMem[10] = 32'h00000093; // ADDI x1, x0, 0         # Reset i = 0
+        dut.imem.IMem[11] = 32'h00000313; // ADDI x6, x0, 0         # Reset pointer a = 0
+        dut.imem.IMem[12] = 32'h20000393; // ADDI x7, x0, 512       # Reset pointer b = 512
+
+        // Second Loop: for(i=0; i<128; i++) { b[i] = a[i]; }
+        dut.imem.IMem[13] = 32'h00032203; // LW x4, 0(x6)          # Load a[i] into x4
+        dut.imem.IMem[14] = 32'h0043a023; // SW x4, 0(x7)          # Store x4 into b[i]
+        dut.imem.IMem[15] = 32'h00430313; // ADDI x6, x6, 4         # Increment pointer a (r6 += 4)
+        dut.imem.IMem[16] = 32'h00438393; // ADDI x7, x7, 4         # Increment pointer b (r7 += 4)
+        dut.imem.IMem[17] = 32'h00108093; // ADDI x1, x1, 1         # Increment i (i++)
+        dut.imem.IMem[18] = 32'h00208463; // BEQ x1, x2, 8          # If i == 128, branch to address 80
+        dut.imem.IMem[19] = 32'h03400067; // JALR x0, 52            # Jump back to address 52
+        dut.imem.IMem[20] = 32'h18302823; // NOP                    # Program Completed
+        dut.imem.IMem[21] = 32'h0000007f; // SPecial Instruction to Drain cache to DMEM
+        dut.imem.IMem[22] = 32'h0000007f; // SPecial Instruction to Drain cache to DMEM
+
 
     end
 
@@ -86,7 +100,7 @@ module RISCVCPU_tb_dcache_store_buf;
         reset = 0;
 
         // Run Simulation for Sufficient Cycles to Execute Instructions
-        repeat (500) @(posedge clock); 
+        repeat (10000) @(posedge clock); 
         
 
         // Display Register Values After Execution
@@ -190,24 +204,27 @@ module RISCVCPU_tb_dcache_store_buf;
         // x1=5, x2=10, x3=10, x4=15, x5=15
         // Also check DMEM[0] == 5, DMEM[1] == 10, DMEM[2] == 15
 
-        check_reg(1,   5);
-        check_reg(2,   10);
-        check_reg(3,   10);
-        check_reg(4,   15);
-        check_reg(5,    12);
-        check_reg(6,   16);
-        check_reg(7,   16);
-        check_reg(8,   64);
-        check_reg(9,   13);
+        // Register Checks
+        check_reg(1, 128);   // x1: Loop index i should be 128 after both loops
+        check_reg(2, 128);   // x2: Loop limit should remain 128
+        check_reg(3, 5);     // x3: Constant value 5 used to initialize a[i]
+        check_reg(4, 5);     // x4: Temporary register should hold the last loaded value from a[i] = 5
+        check_reg(6, 512);   // x6: Pointer a should be 512 after the first loop (128 * 4)
+        check_reg(7, 1024);  // x7: Pointer b should be 1024 after the second loop (512 + 128 * 4)
 
-        check_dmem(0, 5);
-        check_dmem(4, 10);
-        check_dmem(8, 15);
-        check_dmem(12, 12);
-        check_dmem(16, 16);
-        check_dmem(64, 13);
 
-    
+        // lopp to check the rest of the memory using check_dmem
+        for (int i = 0; i < 128 * 4; i+=4) begin
+            check_dmem(i, 5);
+        end
+
+        for (int i = 512; i < (512 + (128 * 4)); i+= 4) begin
+            check_dmem(i, 5);
+        end
+
+
+
+
 
         if (fail_count == 0)
             $display("[TEST PASS] All checks passed!");

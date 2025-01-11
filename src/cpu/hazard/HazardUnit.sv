@@ -12,7 +12,8 @@ module HazardUnit(
     logic load_use_hazard;
     always_comb begin
         load_use_hazard = (ex_mem_bus_in.opcode == LW) && (
-            (((id_ex_bus_in.opcode == LW) || (id_ex_bus_in.opcode == SW)) && (id_ex_bus_in.rs1 == ex_mem_bus_in.rd)) ||
+            (((id_ex_bus_in.opcode == LW)) && (id_ex_bus_in.rs1 == ex_mem_bus_in.rd)) ||
+            ((id_ex_bus_in.opcode == SW) && ((id_ex_bus_in.rs1 == ex_mem_bus_in.rd) || (id_ex_bus_in.rs2 == ex_mem_bus_in.rd))) ||
             (((id_ex_bus_in.opcode == ALUopR) || (id_ex_bus_in.opcode == ALUopI)) && 
              ((id_ex_bus_in.rs1 == ex_mem_bus_in.rd) || (id_ex_bus_in.rs2 == ex_mem_bus_in.rd))) ||
             ((id_ex_bus_in.opcode == JALR) && (id_ex_bus_in.rs1 == ex_mem_bus_in.rd)) ||
