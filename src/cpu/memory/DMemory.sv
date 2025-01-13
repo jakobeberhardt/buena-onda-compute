@@ -15,7 +15,7 @@ module DMemory(
 );
 
   // Memory array with 1024 entries (10-bit index: [13:4])
-  cache_data_type memArray[0:1023];
+  cache_data_type memArray[0:16536];
 
   // FSM states
   typedef enum logic [1:0] { M_IDLE, M_WAIT } mstate_t;
@@ -51,8 +51,7 @@ module DMemory(
         logic [9:0] block_index;
         block_index = mem_req.addr[13:4]; // Corrected indexing
 
-        $display("Time: %0t | Writing to memArray[%0d] = %0h, address = %0d",
-                 $time, block_index, mem_req.data, mem_req.addr);
+       // $display("Time: %0t | Writing to memArray[%0d] = %0h, address = %0d",$time, block_index, mem_req.data, mem_req.addr);
         memArray[block_index] <= mem_req.data;
       end
     end

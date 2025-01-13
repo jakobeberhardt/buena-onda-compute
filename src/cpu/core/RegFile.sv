@@ -23,7 +23,6 @@ module RegFile(
         if (((mem_wb_bus_in.opcode == LW) || (mem_wb_bus_in.opcode == ALUopR) || (mem_wb_bus_in.opcode == ALUopI))
             && (mem_wb_bus_in.rd != 0)) begin
             Regs[mem_wb_bus_in.rd] <= mem_wb_bus_in.wb_value;
-            
         end
         Regs[0] <= 0;
     end

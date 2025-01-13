@@ -241,7 +241,7 @@ module dm_cache_fsm (
             //write_back_addr = { tag_read.tag, active_addr[TAGLSB-1:0] };
 
             //v_mem_req.addr = write_back_addr; // Use the captured address
-            $display("Time: %0t | Write back in compare : addr=%0h, data=%0h",$time, v_mem_req.addr, data_read);
+            //$display("Time: %0t | Write back in compare : addr=%0h, data=%0h",$time, v_mem_req.addr, data_read);
             v_mem_req.rw   = '1; // Write back
             // wait until write is completed
             vstate = write_back;
@@ -270,7 +270,7 @@ module dm_cache_fsm (
       // write_back state (writing back dirty line to memory)
       //--------------------------------------------------------------------------
       write_back: begin
-        $display("Time: %0t | Write back: addr=%0h, data=%0h, mem_data_ready=%0d, mem_req_valid=%0d",$time, write_back_addr, data_read, mem_data.ready, mem_req.valid);
+       // $display("Time: %0t | Write back: addr=%0h, data=%0h, mem_data_ready=%0d, mem_req_valid=%0d",$time, write_back_addr, data_read, mem_data.ready, mem_req.valid);
         v_mem_req.rw = '1; // Write back
         v_mem_req.addr = write_back_addr; // Ensure we're using the correct address
 

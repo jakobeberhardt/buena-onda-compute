@@ -72,7 +72,7 @@ module EX(
 
     always @(posedge clock) begin
         if (`DEBUG) begin
-            $display("EX After ALU: EXMEMALUOut = %h", EXMEMALUOut);
+            //$display("EX After ALU: EXMEMALUOut = %h", EXMEMALUOut);
         end
     end
 
