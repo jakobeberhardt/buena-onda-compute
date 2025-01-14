@@ -159,19 +159,30 @@ module RISCVCPU(
 
     
     // Memories
+    logic [31:0] tlb_phys_addr;
+    logic        iTLB_stall;
+    ITLB i_tlb(
+    .clock         (clock),
+    .reset         (reset),
+    .virt_addr_in  (if_stage.PC), 
+    .phys_addr_out (tlb_phys_addr),
+    .iTLB_stall    (iTLB_stall)
+);
+
+
     logic [31:0] iCache_instr;    // instruction output from ICache to IF
     logic [31:0] iCache_memAddr;  // address from ICache to IMemory
     logic [127:0] iMem_data;       // data from IMemory back to ICache
 
     ICache i_cache(
-        .clock(clock),
-        .reset(reset),
-        .addr_in(if_stage.PC >> 2),
-        .data_out(iCache_instr),
-        .iCache_stall(iCacheStall),
-        .mem_addr(iCache_memAddr),
-        .mem_dataOut(iMem_data)
-    );
+    .clock       (clock),
+    .reset       (reset),
+    .addr_in     (tlb_phys_addr >> 2),
+    .data_out    (iCache_instr),
+    .iCache_stall(iCacheStall),
+    .mem_addr    (iCache_memAddr),
+    .mem_dataOut (iMem_data)
+);
 
     IMemory imem(
         .addr(iCache_memAddr),
@@ -187,7 +198,7 @@ module RISCVCPU(
         ctrl_signals.load_use_stall= load_use_stall;
         ctrl_signals.stall_mul     = stall_mul;
         ctrl_signals.excpt_out     = excpt;
-        ctrl_signals.stall         = load_use_stall | dCacheStall | stall_mul;
+        ctrl_signals.stall         = load_use_stall | dCacheStall | stall_mul | iTLB_stall;
     end
 
 
