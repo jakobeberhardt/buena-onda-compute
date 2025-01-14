@@ -75,6 +75,6 @@ module ITLB(
 
     // Physical address generation:
     assign phys_addr_out = (tlb_valid && (virt_addr_in[31:10] == tlb_vpn))
-                           ? {tlb_ppn, page_offset}
+                           ? {tlb_ppn, page_offset} + 4'd0000
                            : 32'hDEAD_BEEF;
 endmodule
