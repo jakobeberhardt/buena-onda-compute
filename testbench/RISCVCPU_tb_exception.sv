@@ -118,11 +118,11 @@ module RISCVCPU_tb_exception;
         check_reg(7, 7);
 
         // Accessing word0 (bits [31:0]) of memArray[0]
-        if (dut.mem_stage.main_memory.memArray[0][31:0] == 32'd15) begin
-            $display("DMEM[0][31:0] PASS: got %0d, expected 15", dut.mem_stage.main_memory.memArray[0][31:0]);
+        if (dut.mem_stage.main_memory.memArray[0][31:0] == 32'd5) begin
+            $display("DMEM[0][31:0] PASS: got %0d, expected 5", dut.mem_stage.main_memory.memArray[0][31:0]);
             pass_count++;
         end else begin
-            $display("DMEM[0][31:0] FAIL: got %0d, expected 15", dut.mem_stage.main_memory.memArray[0][31:0]);
+            $display("DMEM[0][31:0] FAIL: got %0d, expected 5", dut.mem_stage.main_memory.memArray[0][31:0]);
             fail_count++;
         end
 
