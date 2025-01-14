@@ -161,7 +161,7 @@ module RISCVCPU(
     // Memories
     logic [31:0] iCache_instr;    // instruction output from ICache to IF
     logic [31:0] iCache_memAddr;  // address from ICache to IMemory
-    logic [31:0] iMem_data;       // data from IMemory back to ICache
+    logic [127:0] iMem_data;       // data from IMemory back to ICache
 
     ICache i_cache(
         .clock(clock),
