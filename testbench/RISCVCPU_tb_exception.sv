@@ -110,7 +110,7 @@ module RISCVCPU_tb_exception;
         // Also check DMEM[0] == 15
 
         check_reg(1,   5);
-        check_reg(2,   3);
+        check_reg(2,   2);
         check_reg(3,   3);
         check_reg(4,   4);
         check_reg(5,  5);
