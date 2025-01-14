@@ -15,14 +15,14 @@ common mem	, 0
 rob	        , 0
 iret	    , 0
 csrrw	    , 0
-exceptions  , 0	
+exceptions  , 1	
 isa	        , 1
 TLB miss    , 0	
 tlbwrite    , 0	
 sb drain    , 1	
-5stage mul  , 0	
+5stage mul  , 1
 bypass form sb, 1	
-perf data	 , 0
+perf data	 , 1
 code style	, 1
-waves	  , 0
-Total, 10/26
+waves	  , 1
+Total, 14/26

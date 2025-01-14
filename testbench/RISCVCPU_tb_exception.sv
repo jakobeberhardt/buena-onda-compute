@@ -1,7 +1,7 @@
-`define DEBUG 1 // Set to 1 to enable debug prints, 0 to disable
+`define DEBUG 1  // Set to 1 to enable debug prints, 0 to disable
 `timescale 1ns/1ps
 
-module RISCVCPU_tb_basic;
+module RISCVCPU_tb_exception;
 
     // Clock and Reset Signals
     logic clock;
@@ -18,9 +18,9 @@ module RISCVCPU_tb_basic;
 
     initial begin
         // VCD output filename
-        $dumpfile("RISCVCPU_tb_basic.vcd");
+        $dumpfile("RISCVCPU_tb_exception.vcd");
         // Dump everything in this testbench hierarchy
-        $dumpvars(0, RISCVCPU_tb_basic);
+        $dumpvars(0, RISCVCPU_tb_exception);
     end
 
     // Clock Generation: 10ns Period (100MHz)
@@ -48,12 +48,12 @@ module RISCVCPU_tb_basic;
         // -- Program: place instructions in IMem --
         dut.imem.IMem[0] = 32'h00500093; // addi x1, x0, 5
         dut.imem.IMem[1] = 32'h00300113; // addi x2, x0, 3
-        dut.imem.IMem[2] = 32'h002081B3; // add  x3, x1, x2
+        dut.imem.IMem[2] = 32'h001020a3; // sw   x5, 1(x0) // cause exception
         dut.imem.IMem[3] = 32'h40208233; // sub  x4, x1, x2
         dut.imem.IMem[4] = 32'h022082B3; // mul  x5, x1, x2
         dut.imem.IMem[5] = 32'h06400313; // addi x6, x0, 100
         dut.imem.IMem[6] = 32'h005303b3; // add  x7, x6, x5
-        dut.imem.IMem[7] = 32'h00502023; // sw   x5, 0(x0)
+        dut.imem.IMem[7] = 32'h002081B3; // add  x3, x1, x2
         dut.imem.IMem[8] = 32'h00000013; // nop
         dut.imem.IMem[9] = 32'h00000013; // nop
         //force cache data into main memory by writing exact lines of cache memory
@@ -111,11 +111,11 @@ module RISCVCPU_tb_basic;
 
         check_reg(1,   5);
         check_reg(2,   3);
-        check_reg(3,   8);
-        check_reg(4,   2);
-        check_reg(5,  15);
-        check_reg(6, 100);
-        check_reg(7, 115);
+        check_reg(3,   3);
+        check_reg(4,   4);
+        check_reg(5,  5);
+        check_reg(6, 6);
+        check_reg(7, 7);
 
         // Accessing word0 (bits [31:0]) of memArray[0]
         if (dut.mem_stage.main_memory.memArray[0][31:0] == 32'd15) begin

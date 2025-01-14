@@ -3,8 +3,17 @@
 
 
 parameter int TAGMSB = 19;
-parameter int TAGLSB = 6;
+parameter int TAGLSB = 6; 
+parameter logic [2:0] NO_EXCEPTION= 3'b0;
+parameter logic [2:0] INVALID_ADDR = 3'b1;
+parameter logic [2:0] UNALIGNED_ACCESS = 3'b10;
+parameter logic [2:0] OVERFLOW = 3'b11;
+parameter logic [2:0] DIVIDE_BY_ZERO = 3'b100;
 
+
+
+parameter logic [31:0] INIT_ADDR = 32'h0000000;
+parameter logic [31:0] EXCPT_ADDR = 32'h0002004;
 typedef struct packed {
     logic [31:0] instruction;
     logic [6:0]  opcode;
@@ -36,6 +45,7 @@ typedef struct packed {
     logic [6:0]  opcode;
     logic [4:0]  rd;
     logic [2:0]  funct3;
+    logic [2:0]  excpt_out;
 } ex_mem_bus_t;
 
 typedef struct packed {
@@ -108,7 +118,8 @@ typedef struct packed {               // Changed to packed
 
 //stage NOPS
 id_ex_bus_t id_ex_nop = '{32'h0, 32'h0, 32'h0, 32'h0, 7'b0, 5'b0, 5'b0, 5'b0, 3'b0, 7'b0, 32'h0};
-ex_mem_bus_t ex_mem_nop = '{32'h0, 32'h0, 32'h0, 7'b0, 5'b0, 3'b0};
+ex_mem_bus_t ex_mem_nop = '{32'h0, 32'h0, 32'h0, 7'b0, 5'b0, 3'b0, 3'b0};
+ex_mem_bus_t ex_mem_nop_xcpt = '{32'h0, 32'h0, 32'h0, 7'b0, 5'b0, 3'b0, INVALID_ADDR};
 mem_wb_bus_t mem_wb_nop = '{32'h0, 32'h0, 7'b0, 5'b0};
 if_id_bus_t if_id_nop = '{32'h0, 7'b0, 5'b0, 5'b0};
 

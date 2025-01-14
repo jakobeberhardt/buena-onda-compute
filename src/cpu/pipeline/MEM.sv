@@ -15,7 +15,8 @@ module MEM(
     output wire mem_wb_bus_t          mem_wb_bus_out,
 
     //stall pipeline if cache is busy or sb is full
-    output logic                stall
+    output logic                stall,
+    input logic [2:0]               excpt_in
 );
 
     localparam ENTRY_COUNT = 4;
@@ -85,7 +86,8 @@ module MEM(
         .full       (force_sb_drain),  // force drain if SB is full
 
         // Flush for (debug or test)
-        .flush       (1'b0)  // e.g., tie to (ex_mem_bus_in.opcode == DRAIN_CACHE)
+        .flush       (1'b0),  // e.g., tie to (ex_mem_bus_in.opcode == DRAIN_CACHE)
+        .excpt_in    (excpt_in)
     );
 
     //========================================================
@@ -105,7 +107,8 @@ module MEM(
         .sb_drain_addr (sb_deq_addr),
         .sb_drain_data (sb_deq_data),
         .sb_drain_done (sb_drain_done),  // FSM signals done
-        .force_drain   (force_sb_drain)  // force drain if SB is full
+        .force_drain   (force_sb_drain),  // force drain if SB is full
+        .excpt_in      (excpt_in)
     );
 
     //========================================================
@@ -115,7 +118,8 @@ module MEM(
         .clock    (clock),
         .reset    (reset),
         .mem_req  (mem_req),   // from the cache
-        .mem_data (mem_data)   // goes back to cache
+        .mem_data (mem_data),   // goes back to cache
+        .excpt_in (excpt_in)
     );
 
 

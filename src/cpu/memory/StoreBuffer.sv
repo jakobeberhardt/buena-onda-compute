@@ -29,7 +29,8 @@ module StoreBuffer #(
   output logic full,
 
   // For flushing (optional, e.g., drain or debug)
-  input  logic                flush
+  input  logic                flush,
+  input logic [2:0]              excpt_in
 );
 
   
@@ -46,7 +47,7 @@ module StoreBuffer #(
   // Enqueue logic
   //--------------------------------------------------------------------------
   always_ff @(posedge clock or posedge reset) begin
-    if (reset) begin
+    if (reset | excpt_in) begin
       head  <= '0;
       tail  <= '0;
       count <= '0;

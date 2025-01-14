@@ -21,7 +21,8 @@ module dm_cache_fsm (
   output logic          sb_drain_done,   // 1 => drain write completed this cycle
 
   //foce drain
-  input logic force_drain
+  input logic force_drain,
+  input logic [2:0] excpt_in
 
 );
 
@@ -315,10 +316,9 @@ module dm_cache_fsm (
   // Synchronous state update
   //--------------------------------------------------------------------------
   always_ff @(posedge clock) begin
-    if (reset) begin
+    if (reset | excpt_in  ) begin
       rstate <= idle;
-        write_back_addr <= 32'b0; // **Reset the write_back_addr**
-
+      write_back_addr <= 32'b0; // **Reset the write_back_addr**
     end
     else begin
       rstate <= vstate;

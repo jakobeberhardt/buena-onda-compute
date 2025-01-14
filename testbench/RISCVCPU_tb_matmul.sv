@@ -128,7 +128,7 @@ module RISCVCPU_tb_matmul;
         reset = 0;
 
         // Run Simulation for Sufficient Cycles to Execute Instructions
-        repeat (300000) @(posedge clock); 
+        repeat (200000) @(posedge clock); 
         
 
         // Display Register Values After Execution

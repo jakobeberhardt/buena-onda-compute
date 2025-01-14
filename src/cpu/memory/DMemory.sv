@@ -11,7 +11,8 @@ module DMemory(
     input  mem_req_type   mem_req,
 
     // Memory response to the cache
-    output mem_data_type  mem_data
+    output mem_data_type  mem_data,
+    input  logic [2:0]           excpt_in
 );
 
   // Memory array with 1024 entries (10-bit index: [13:4])
@@ -29,11 +30,10 @@ module DMemory(
 
   // Initialize memory on reset
   always_ff @(posedge clock or posedge reset) begin
-    if (reset) begin
+    if (reset | excpt_in) begin
       rstate     <= M_IDLE;
       waitCount  <= 0;
       read_buffer <= '0;
-      // Initialize memArray to zero (optional)
     end
     else begin
       rstate <= vstate;

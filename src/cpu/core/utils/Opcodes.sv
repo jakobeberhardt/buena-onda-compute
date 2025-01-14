@@ -25,3 +25,4 @@ parameter LB_FUNCT3 = 3'b000;
 parameter SB_FUNCT3 = 3'b000;
 parameter LH_FUNCT3 = 3'b100;
 parameter SH_FUNCT3 = 3'b100;
+parameter DIV    = 3'b100;

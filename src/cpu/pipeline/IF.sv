@@ -12,15 +12,18 @@ module IF(
     input  logic [31:0] branch_offset,
     input  wire  id_ex_bus_t id_ex_bus_in,
     input  logic [31:0] JalAddr,
-    output if_id_bus_t if_id_bus_out
+    output if_id_bus_t if_id_bus_out,
+    input wire logic [2:0] excpt_in
 );
 
     logic [31:0] PC;
 
     always_ff @(posedge clock or posedge reset) begin
         if (reset) begin
-            PC <= 32'd0;
-        end 
+            PC <= INIT_ADDR;
+        end else if (excpt_in) begin
+            PC <= EXCPT_ADDR;
+        end  
         else if (takebranch) begin
             // Handle branch or JALR
             if (id_ex_bus_in.opcode == JALR) 

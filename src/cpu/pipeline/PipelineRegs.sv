@@ -6,7 +6,7 @@
 module PipelineRegs(
     input logic clock,
     input logic reset,
-    input control_signals_t ctrl_signals,
+    input wire control_signals_t ctrl_signals,
 
     input wire if_id_bus_t if_id_bus_in,
     output if_id_bus_t if_id_bus_out,
@@ -18,7 +18,9 @@ module PipelineRegs(
     output ex_mem_bus_t ex_mem_bus_out,
 
     input wire mem_wb_bus_t mem_wb_bus_in,
-    output mem_wb_bus_t mem_wb_bus_out
+    output mem_wb_bus_t mem_wb_bus_out,
+
+    input logic [2:0] excpt_in
 );
 
 
@@ -34,6 +36,22 @@ module PipelineRegs(
             id_ex_reg <= id_ex_nop;
             ex_mem_reg <= ex_mem_nop;
             mem_wb_reg <= mem_wb_nop;
+        end
+        else if (excpt_in) begin
+            // Handle Exceptions
+            if_id_reg <= if_id_nop;
+            id_ex_reg <= id_ex_nop;
+            ex_mem_reg <= ex_mem_nop;
+            mem_wb_reg <= mem_wb_nop;
+
+        end else if (ctrl_signals.stall_mul) begin
+            // Handle MUL Stall
+            // Inject NOP into ID/EX to create a bubble
+            //id_ex_reg <= id_ex_nop;
+
+            // EX/MEM and MEM/WB stages proceed normally
+            //ex_mem_reg <= ex_mem_bus_in;
+            mem_wb_reg <= mem_wb_bus_in;
 
         end else if (ctrl_signals.takebranch && !ctrl_signals.stall) begin
             // Inject NOP into IF/ID to flush the instruction fetched after the branch
