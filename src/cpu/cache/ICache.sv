@@ -15,15 +15,15 @@ module ICache(
     assign word_offset = addr_in[1:0];
 
     always_comb begin
-        // Word 0 of the line is in mem_dataOut[ 31 : 0 ]
-        // Word 1 of the line is in mem_dataOut[ 63 : 32 ]
-        // Word 2 of the line is in mem_dataOut[ 95 : 64 ]
-        // Word 3 of the line is in mem_dataOut[127 : 96 ]
+        // word 0 => bits [127:96]
+        // word 1 => bits [95:64]
+        // word 2 => bits [63:32]
+        // word 3 => bits [31: 0]
         unique case (word_offset)
-            2'd3: data_out = mem_dataOut[ 31:  0];
-            2'd2: data_out = mem_dataOut[ 63: 32];
-            2'd1: data_out = mem_dataOut[ 95: 64];
-            2'd0: data_out = mem_dataOut[127: 96];
+        2'd0: data_out = mem_dataOut[127:96];
+        2'd1: data_out = mem_dataOut[95 :64];
+        2'd2: data_out = mem_dataOut[63 :32];
+        2'd3: data_out = mem_dataOut[31 : 0 ];
         endcase
     end
 
