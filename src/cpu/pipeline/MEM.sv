@@ -188,10 +188,10 @@ module MEM(
             // 1) Grab the 32-bit raw data (either from SB forwarding or from cache)
             if (sb_load_hit) begin
                 rawData = sb_load_data;  
-                $display("SB Load Hit: %0d", rawData);
+                //$display("SB Load Hit: %0d", rawData);
             end else begin
                 rawData = cpu_res.data; 
-                $display("Cache Load Hit: %0d", rawData); 
+                //$display("Cache Load Hit: %0d", rawData); 
             end
 
             if (ex_mem_bus_in.funct3 == 3'b000) begin

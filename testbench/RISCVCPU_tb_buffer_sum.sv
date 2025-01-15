@@ -24,6 +24,11 @@ module RISCVCPU_tb_buffer_sum;
         forever #5 clock = ~clock;
     end
 
+    initial begin
+        $dumpfile("RISCVCPU_tb_buffer_sum.vcd");
+        $dumpvars(0, RISCVCPU_tb_buffer_sum);
+    end
+
     // -----------------------------
     // Instruction Memory Init
     // -----------------------------

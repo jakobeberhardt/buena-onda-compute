@@ -136,7 +136,7 @@ module StoreBuffer #(
     end
 
     sb_load_data = merged_data;
-    $display("In sb_load_data = %0p", sb_load_data);
+    //$display("In sb_load_data = %0p", sb_load_data);
   end
 
   //assign sb_load_hit  = match_found;
