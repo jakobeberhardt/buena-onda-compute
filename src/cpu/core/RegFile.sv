@@ -25,11 +25,7 @@ module RegFile(
     end
 
     always  @(posedge clock) begin
-        /*if (reset) begin
-            Regs[0] <= 0;
-            for (i=1; i<32; i=i+1)
-                Regs[i] <= 0;
-        end else*/if (excpt_in) begin
+if (excpt_in) begin
             excpt_inst <= excpt_inst_in;
             excpt_type <= excpt_in;
         end else if (((mem_wb_bus_in.opcode == LW) || (mem_wb_bus_in.opcode == ALUopR) || (mem_wb_bus_in.opcode == ALUopI))

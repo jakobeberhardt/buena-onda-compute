@@ -40,9 +40,28 @@ module MEM(
     mem_req_type   mem_req;
     mem_data_type  mem_data;
 
+    
+
     //========================================================
     // 3) Instantiate the Store Buffer
     //========================================================
+    // For a 32-bit system, address[1:0] chooses the byte offset:
+    logic [3:0] wstrb;
+    always_comb begin
+        wstrb = 4'b0000;
+        if (ex_mem_bus_in.opcode == SW ) begin
+            wstrb = 4'b1111;
+            if (ex_mem_bus_in.funct3 == SB_FUNCT3) begin
+                case (ex_mem_bus_in.alu_result[1:0])
+                    2'b00: wstrb = 4'b0001;
+                    2'b01: wstrb = 4'b0010;
+                    2'b10: wstrb = 4'b0100;
+                    2'b11: wstrb = 4'b1000;
+                endcase
+            end
+        end
+    end
+
     logic             sb_enq_valid;
     logic [31:0]      sb_enq_addr, sb_enq_data;
     logic             sb_enq_ready;
@@ -69,6 +88,7 @@ module MEM(
         .enq_addr    (sb_enq_addr),
         .enq_data    (sb_enq_data),
         .enq_ready   (sb_enq_ready),
+        .enq_wstrb   (wstrb),
 
         // Dequeue signals
         .deq_req     (sb_deq_req),
@@ -86,7 +106,7 @@ module MEM(
         .full       (force_sb_drain),  // force drain if SB is full
 
         // Flush for (debug or test)
-        .flush       (1'b0),  // e.g., tie to (ex_mem_bus_in.opcode == DRAIN_CACHE)
+        .flush       (1'b0),  
         .excpt_in    (excpt_in)
     );
 
@@ -134,17 +154,13 @@ module MEM(
 
     // If we are forcing a drain, we stall the pipeline
     //if store buffer is full, we can't enqueue a new store
-
-
     //========================================================
     // 7) Enqueue Logic for CPU Store-Hit
     //========================================================
     // We detect a store-hit by:
     //   1) cpu_req.rw == 1 => store
     //   2) cpu_req.valid == 1
-    //   3) cpu_res.ready == 1 => The cache says "store is done" from pipeline viewpoint (HIT).
-    // In dm_cache_fsm, a store hit sets cpu_res.ready=1 but does NOT physically write the data array.
-    // We'll enqueue the <addr, data> in SB at that moment.
+    //   3) cpu_res.ready == 1 => The cache says "store is done" from pipeline viewpoint (HIT)
 
     logic store_hit_and_done;
     assign store_hit_and_done = (cpu_req.valid && cpu_req.rw && cpu_res.ready);
@@ -154,41 +170,58 @@ module MEM(
     assign sb_enq_data  = cpu_req.data;
 
 
-    
-
-
-
-
-
-
     //========================================================
     // 8) Load Bypass (Forwarding) & Final WB Value
     //========================================================
     logic [31:0] finalValue;
+    logic [31:0] rawData;
+
     always_comb begin
-      finalValue = '0;
-      unique case (ex_mem_bus_in.opcode)
-        ALUopR, ALUopI: finalValue = ex_mem_bus_in.alu_result;
+        finalValue = '0;
 
-        LW: begin
-          // If the SB has a more recent store to the same address, forward that data
-          if (sb_load_hit) 
-            finalValue = sb_load_data;
-          else
-            finalValue = cpu_res.data;  // from cache
-        end
+        unique case (ex_mem_bus_in.opcode)
+            ALUopR, ALUopI: begin
+            finalValue = ex_mem_bus_in.alu_result;
+            end
 
-        SW: finalValue = 32'b0;  // store doesn't produce WB
-        default: finalValue = ex_mem_bus_in.alu_result;
-      endcase
+            LW: begin
+            // 1) Grab the 32-bit raw data (either from SB forwarding or from cache)
+            if (sb_load_hit) begin
+                rawData = sb_load_data;  
+                $display("SB Load Hit: %0d", rawData);
+            end else begin
+                rawData = cpu_res.data; 
+                $display("Cache Load Hit: %0d", rawData); 
+            end
+
+            if (ex_mem_bus_in.funct3 == 3'b000) begin
+                // = LB (sign-extended byte)
+                unique case (ex_mem_bus_in.alu_result[1:0])
+                2'b11: finalValue = {{24{rawData[ 7]}}, rawData[ 7:0]};
+                2'b10: finalValue = {{24{rawData[15]}}, rawData[15:8]};
+                2'b01: finalValue = {{24{rawData[23]}}, rawData[23:16]};
+                2'b00: finalValue = {{24{rawData[31]}}, rawData[31:24]};
+                endcase
+            end
+            else begin
+                finalValue = rawData;
+            end
+            end
+
+            SW: begin
+            finalValue = 32'b0;
+            end
+
+            default: begin
+            finalValue = ex_mem_bus_in.alu_result;
+            end
+        endcase
     end
+
 
     //Flush the cache, (For testing purposes)
     int sb_flushed = 0;
-
-
     always_ff @(posedge clock) begin
-    // Suppose you have a special opcode to dump SB to memory
         if (ex_mem_bus_in.opcode == DRAIN_CACHE) begin
             sb_flushed <= 1;
             // Iterate over every SB entry

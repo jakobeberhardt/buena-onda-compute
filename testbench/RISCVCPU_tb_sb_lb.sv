@@ -1,7 +1,7 @@
 `define DEBUG 0  // Set to 1 to enable debug prints, 0 to disable
 `timescale 1ns/1ps
 
-module RISCVCPU_tb_dcache_store_buf;
+module RISCVCPU_tb_sb_lb;
 
     // Clock and Reset Signals
     logic clock;
@@ -16,15 +16,16 @@ module RISCVCPU_tb_dcache_store_buf;
         .reset(reset)
     );
 
-    initial begin
-        $dumpfile("RISCVCPU_tb_dcache_store_buf.vcd");
-        $dumpvars(0, RISCVCPU_tb_dcache_store_buf);
-    end
-
     // Clock Generation: 10ns Period (100MHz)
     initial begin
         clock = 0;
         forever #5 clock = ~clock; // Toggle clock every 5ns
+    end
+
+    //dump vars
+    initial begin
+        $dumpfile("RISCVCPU_tb_sb_lb.vcd");
+        $dumpvars(0, dut);
     end
 
     typedef bit [31:0] word_type;
@@ -55,23 +56,15 @@ module RISCVCPU_tb_dcache_store_buf;
         end
 
         // -- Program: place instructions in IMem --
-        //Testing Storebuffer
-        dut.imem.IMem[0] = 32'h00002083; // lw x1, 0(x0)
-        dut.imem.IMem[1] = 32'h00108133; // add x2, x1, x1
-        dut.imem.IMem[2] = 32'h00202223; // sw x2, 4(x0)
-        dut.imem.IMem[3] = 32'h00402183; // lw x3, 4(x0)
-        dut.imem.IMem[4] = 32'h00118233; // add x4, x3, x1
-        dut.imem.IMem[5] = 32'h00402423; // sw x4, 8(x0)
-        dut.imem.IMem[6] = 32'h00c00293; // addi x5, x0, 12
-        dut.imem.IMem[7] = 32'h00502623; // sw x5, 12(x0)
-        dut.imem.IMem[8] = 32'h01000313; // addi x6, x0, 16
-        dut.imem.IMem[9] = 32'h00602823; // sw x6, 16(x0)
-        dut.imem.IMem[10] = 32'h01002383; // lw x7, 16(x0)
-        dut.imem.IMem[11] = 32'h04000413; // addi x8, x0, 64
-        dut.imem.IMem[12] = 32'h04d02023; // sw x13, 64(x0)
-        dut.imem.IMem[13] = 32'h04002483; // lw x9, 64(x0)
-        dut.imem.IMem[14] = 32'h0000007f; // SPecial Instruction to Drain cache to DMEM
-        dut.imem.IMem[15] = 32'h0000007f; // SPecial Instruction to Drain cache to DMEM
+        // instructions to test load hazard
+        dut.imem.IMem[0] = 32'h00a00093; // addi x1, x0, 10
+        dut.imem.IMem[1] = 32'h001001a3; // sb x1, 3(x0)
+        dut.imem.IMem[2] = 32'h00300183; // lb x3, 3(x0)
+
+        dut.imem.IMem[11] = 32'h00000013;
+        //force cache data into main memory by writing exact lines of cache memory
+        dut.imem.IMem[12] = 32'h0000007f; // SPecial Instruction to Drain cache to DMEM
+
 
         dut.mem_stage.main_memory.memArray[0][31:0] = 32'h00000005; // DMEM[0][Word0] = 5
         
@@ -95,14 +88,14 @@ module RISCVCPU_tb_dcache_store_buf;
         
 
         // Display Register Values After Execution
-        $display("==== Final Register File ====");
+        /*$display("==== Final Register File ====");
         for (int i = 0; i <= 12; i = i + 1) begin
             $display("After execution, x%d = %d", i, dut.regfile.Regs[i]);
         end
 
         // Display Memory Contents
         print_mainMem();
-        print_cacheMem();
+        print_cacheMem();*/
         print_StoreBuffer();
 
         // Verify Key Registers
@@ -115,7 +108,7 @@ module RISCVCPU_tb_dcache_store_buf;
     task automatic print_mainMem();
         // Print top 4 lines of memory, each line is 128 bits (4 x 32-bit words)
         $display("==== Final Memory ====");
-        for (int i = 0; i < 5; i = i + 1) begin
+        for (int i = 0; i < 4; i = i + 1) begin
             for (int j = 0; j < 4; j = j + 1) begin
                 // Declare variables as automatic to ensure they are stack-based
                 automatic int msb;
@@ -141,7 +134,7 @@ module RISCVCPU_tb_dcache_store_buf;
                 endcase
                 // Display the word with proper indexing
                 $display("memArray[%0d] word%0d [%0d:%0d] = %0d", 
-                        (i * 4 + j) * 4, j, msb, lsb, current_word);
+                        i * 4 + j, j, msb, lsb, current_word);
             end
         end
     endtask
@@ -175,7 +168,7 @@ module RISCVCPU_tb_dcache_store_buf;
                 endcase
                 // Display the word with proper indexing
                 $display("CacheArray[%0d] word%0d [%0d:%0d] = %0d", 
-                        (i * 4 + j) * 4, j, msb, lsb, current_word);
+                        i * 4 + j, j, msb, lsb, current_word);
             end
         end
     endtask
@@ -194,30 +187,10 @@ module RISCVCPU_tb_dcache_store_buf;
         // We'll check only the registers we care about:
         // x1=5, x2=10, x3=10, x4=15, x5=15
         // Also check DMEM[0] == 5, DMEM[1] == 10, DMEM[2] == 15
+        check_reg(1, 10);
+        check_reg(3, 10);
 
-        check_reg(1,   5);
-        check_reg(2,   10);
-        check_reg(3,   10);
-        check_reg(4,   15);
-        check_reg(5,    12);
-        check_reg(6,   16);
-        check_reg(7,   16);
-        check_reg(8,   64);
-        check_reg(9,   13);
 
-        check_dmem(0, 5);
-        check_dmem(4, 10);
-        check_dmem(8, 15);
-        check_dmem(12, 12);
-        check_dmem(16, 16);
-        check_dmem(64, 13);
-
-    
-
-        if (fail_count == 0)
-            $display("[TEST PASS] All checks passed!");
-        else
-            $display("[TEST FAIL] %0d passes, %0d fails.", pass_count, fail_count);
     endtask
 
     task check_dmem(input int addr, input int expected);
@@ -246,34 +219,6 @@ module RISCVCPU_tb_dcache_store_buf;
         end else begin
             $display("x%0d FAIL: got %0d, expected %0d", 
                      regnum, dut.regfile.Regs[regnum], expected);
-        end
-    endtask
-
-    task check_cache(input int addr, input int expected);
-        automatic logic [31:0] cacheValue;
-        automatic int word_in_line = (addr / 4) % 4;
-        case (word_in_line) 
-            0: cacheValue = dut.mem_stage.cache_controller.cdata.data_mem[addr/16][31:0];
-            1: cacheValue = dut.mem_stage.cache_controller.cdata.data_mem[addr/16][63:32];
-            2: cacheValue = dut.mem_stage.cache_controller.cdata.data_mem[addr/16][95:64];
-            3: cacheValue = dut.mem_stage.cache_controller.cdata.data_mem[addr/16][127:96];
-        endcase
-        if (cacheValue == expected) begin
-            $display("Cache[%0d] PASS: got %0d, expected %0d", 
-                     addr, cacheValue, expected);
-        end else begin
-            $display("Cache[%0d] FAIL: got %0d, expected %0d", 
-                     addr, cacheValue, expected);
-        end
-    endtask
-
-    task check_storebuf(input int addr, input int expected);
-        if (dut.mem_stage.sb.store_buf[addr] == expected) begin
-            $display("StoreBuffer[%0d] PASS: got %0d, expected %0d", 
-                     addr, dut.mem_stage.sb.store_buf[addr], expected);
-        end else begin
-            $display("StoreBuffer[%0d] FAIL: got %0d, expected %0d", 
-                     addr, dut.mem_stage.sb.store_buf[addr], expected);
         end
     endtask
 

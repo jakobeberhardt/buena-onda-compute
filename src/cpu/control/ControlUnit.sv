@@ -16,7 +16,6 @@ module ControlUnit(
     logic bypassAfromLDinWB, bypassBfromLDinWB;
     logic bypassDecodeAfromWB, bypassDecodeBfromWB;
 
-    // Implementing the original bypass conditions from your code:
     BypassUnit bypass_unit(
         .id_ex_bus_in(id_ex_bus_in),
         .ex_mem_bus_in(ex_mem_bus_in),
@@ -32,9 +31,7 @@ module ControlUnit(
     );
     
 
-    // From original code:
-    // takebranch = (IFIDop == BEQ) && (DecodeA == DecodeB).
-    // But now we have decodeA, decodeB in id_ex_bus_in
+
     logic takebranch_int;
     logic [31:0] A;
     logic [31:0] B;
@@ -54,9 +51,6 @@ module ControlUnit(
                 
     assign takebranch_int = ((id_ex_bus_in.opcode == BEQ) && (A == B)) || (id_ex_bus_in.opcode == JALR);
     assign JalAddr = A + id_ex_bus_in.imm_i;
-
-    // Stall is computed by HazardUnit, so we leave ctrl_signals_out.stall as is:
-    // We'll assume HazardUnit updates ctrl_signals_out via inout logic.
 
     assign takebranch = takebranch_int;
 

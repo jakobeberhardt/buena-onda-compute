@@ -42,15 +42,9 @@ module PipelineRegs(
             if_id_reg <= if_id_nop;
             id_ex_reg <= id_ex_nop;
             ex_mem_reg <= ex_mem_nop;
-            mem_wb_reg <= mem_wb_nop;
+            mem_wb_reg <= ex_mem_bus_in;
 
         end else if (ctrl_signals.stall_mul) begin
-            // Handle MUL Stall
-            // Inject NOP into ID/EX to create a bubble
-            //id_ex_reg <= id_ex_nop;
-
-            // EX/MEM and MEM/WB stages proceed normally
-            //ex_mem_reg <= ex_mem_bus_in;
             mem_wb_reg <= mem_wb_bus_in;
 
         end else if (ctrl_signals.takebranch && !ctrl_signals.stall) begin

@@ -14,6 +14,7 @@ module StoreBuffer #(
   input  logic [31:0]         enq_addr,
   input  logic [31:0]         enq_data,
   output logic                enq_ready,      // 1 if we can accept
+  input  logic [3:0]          enq_wstrb, 
 
   // Dequeue/drain interface
   input  logic                deq_req,        // Request to drain 1 entry
@@ -70,14 +71,13 @@ module StoreBuffer #(
           store_buf[tail].valid <= 1'b1;
           store_buf[tail].addr  <= enq_addr;
           store_buf[tail].data  <= enq_data;
+          store_buf[tail].wstrb <= enq_wstrb;
           tail  <= (tail + 1) % ENTRY_COUNT;
           count <= count + 1;
         end
 
         // Dequeue
         if (deq_req && deq_valid) begin
-            //$display("Dequeueing entry %0d", head);
-          // We assume we "pop" after reading out entry
           store_buf[head].valid <= 1'b0;
           head  <= (head + 1) % ENTRY_COUNT;
           count <= count - 1;
@@ -85,6 +85,22 @@ module StoreBuffer #(
       end
     end
   end
+
+  function logic [31:0] apply_wstrb(
+    input logic [31:0] old_data,
+    input logic [31:0] new_data,
+    input logic [3:0]  wstrb
+  );
+    logic [31:0] out;
+    out = old_data;
+    if (wstrb[3]) out[ 7: 0] = new_data[ 7: 0];
+    if (wstrb[2]) out[15: 8] = new_data[15: 8];
+    if (wstrb[1]) out[23:16] = new_data[23:16];
+    if (wstrb[0]) out[31:24] = new_data[31:24];
+    //$display("In apply_wstrb = %0p", out);
+    return out;
+  endfunction
+
 
   // enq_ready = 1 if there's space in buffer
   assign enq_ready = (count < ENTRY_COUNT);
@@ -96,31 +112,34 @@ module StoreBuffer #(
   assign deq_addr = store_buf[head].addr;
   assign deq_data = store_buf[head].data;
 
-  //--------------------------------------------------------------------------
-  // Load forwarding: check if load_addr matches any entry
-  // For simplicity, we’ll just check all valid entries and pick the newest.
-  //--------------------------------------------------------------------------
   logic        match_found;
   logic [31:0] match_data;
   logic [31:0] newest_idx;
+  logic [31:0] base_data;   
+  logic [31:0] merged_data;
 
   always_comb begin
     match_found = 1'b0;
-    match_data  = '0;
-    // In a real design, you'd pick the *newest* matching store in program order.
-    // Here, we do a simple search from tail backwards or head to tail.
-    for (int i = 0; i < ENTRY_COUNT; i++) begin
-        //$display("Checking entry %0d, with addr %0d and data %0d,valid = %0d, load addr: %0d",i, store_buf[i].addr, store_buf[i].data, store_buf[i].valid,load_addr );
+    base_data   = '0;
+    sb_load_hit  = 1'b0;
+    
+
+    // First, default to “no match”:
+    sb_load_data = base_data;
+    merged_data = base_data;
+    for (int i = ENTRY_COUNT-1; i >= 0; i--) begin
       if (store_buf[i].valid && (store_buf[i].addr == load_addr)) begin
-        match_found = 1'b1;
-        match_data  = store_buf[i].data;
-        // break on the most recent if you track an age field (not shown).
+        sb_load_hit  = 1'b1;
+        merged_data  = apply_wstrb(merged_data, store_buf[i].data, store_buf[i].wstrb);
+
       end
     end
+
+    sb_load_data = merged_data;
+    $display("In sb_load_data = %0p", sb_load_data);
   end
 
-  assign sb_load_hit  = match_found;
-  assign sb_load_data = match_data;
+  //assign sb_load_hit  = match_found;
   assign count_out    = count;
   assign full         = (count == ENTRY_COUNT);
 

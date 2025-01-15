@@ -109,10 +109,6 @@ module ICache(
 
     always_comb begin
         if ((state == IDLE) && hit) begin
-            // word 0 => bits [127:96]
-            // word 1 => bits [95 :64]
-            // word 2 => bits [63 :32]
-            // word 3 => bits [31 : 0]
             unique case (offset)
                 2'd0: data_out = dataMem[index][127 : 96];
                 2'd1: data_out = dataMem[index][95  : 64];

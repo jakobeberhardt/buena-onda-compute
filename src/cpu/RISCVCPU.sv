@@ -23,23 +23,8 @@ module RISCVCPU(
     logic dCacheStall;
     logic iCacheStall;
     logic stall_mul;
-    initial load_use_stall = 0;
-    initial takebranch = 0;
-    initial bypassAfromMEM = 0;
-    initial bypassBfromMEM = 0;
-    initial bypassAfromALUinWB = 0;
-    initial bypassBfromALUinWB = 0;
-    initial bypassAfromLDinWB = 0;
-    initial bypassBfromLDinWB = 0;
-    initial bypassDecodeAfromWB = 0;
-    initial bypassDecodeBfromWB = 0;
-
-    initial mem_wb_bus_in.wb_value = 0;
-    initial mem_wb_bus_in.opcode = 0;
-    initial mem_wb_bus_in.rd = 0;
     logic [2:0] excpt;
-    initial excpt = 0;
-    //initial excpt = NO_EXCEPTION;
+
 
     // RegFile
     logic [31:0] regfile_out_rs1, regfile_out_rs2;
@@ -201,9 +186,26 @@ module RISCVCPU(
         ctrl_signals.stall         = load_use_stall | dCacheStall | stall_mul | iTLB_stall;
     end
 
+    
 
 
     always_ff @(posedge clock) begin
+        if (reset) begin
+            bypassAfromMEM             <= 0;
+            bypassBfromMEM             <= 0;
+            bypassAfromALUinWB         <= 0;
+            bypassBfromALUinWB         <= 0;
+            bypassAfromLDinWB          <= 0;
+            bypassBfromLDinWB          <= 0;
+            bypassDecodeAfromWB        <= 0;
+            bypassDecodeBfromWB        <= 0;
+            takebranch                 <= 0;
+            load_use_stall             <= 0;
+            dCacheStall                <= 0;
+            iCacheStall                <= 0;
+            stall_mul                  <= 0;
+            excpt                      <= 0;
+        end
        if (`DEBUG) begin
             $display("Stalls----------------------------");
             $display("Time: %0t | DEBUG: stall signal = %0d", $time, ctrl_signals.stall);

@@ -72,7 +72,6 @@ module dm_cache_fsm (
   //------------------------------------------------------------------------
   // 0) ARBITRATION: decide who the FSM is servicing this cycle
   //------------------------------------------------------------------------
-  // Priority example: CPU > SB.except if store buffer is full
   // If CPU is valid, we ignore SB drain for this cycle (unless we go idle after).
   always_comb begin
     if (cpu_req.valid && !force_drain) begin

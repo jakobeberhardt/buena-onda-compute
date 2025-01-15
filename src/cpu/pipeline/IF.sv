@@ -7,7 +7,7 @@ module IF(
     input  logic clock,
     input  logic reset,
     input  logic stall,
-    input  logic iCacheStall,   // <--- NEW: iCache stall signal
+    input  logic iCacheStall,   
     input  logic takebranch,
     input  logic [31:0] branch_offset,
     input  wire  id_ex_bus_t id_ex_bus_in,
@@ -55,8 +55,5 @@ module IF(
         end
     end
 
-    // The actual instruction fed to ID is handled at top-level by either:
-    //   if_id_bus_in.instruction = iCacheStall ? 32'h00000013 : iCache_instr;
-    // or a similar mux.  That way you can inject NOPs on iCacheStall.
 
 endmodule

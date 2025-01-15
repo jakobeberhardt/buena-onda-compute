@@ -15,11 +15,6 @@ module MUL(
     output logic         stall_out   // Request pipeline stall if we're still busy
 );
 
-    // We'll artificially pipeline the multiply across 5 cycles:
-    // - On the cycle valid_in=1, we capture A_in, B_in in M1.
-    // - Then M2..M5 produce final result.
-    // We also maintain a 4-cycle "stall counter" so the pipeline knows we’re busy.
-
     // For simplicity, we’ll keep a register for each stage.
     logic [31:0] stage1_value;
     logic [31:0] stage2_value;
@@ -57,12 +52,6 @@ module MUL(
 
     // assert stall_out as long as mul_stall_counter > 0
     assign stall_out = (mul_stall_counter > 0);
-
-    //-------------------------------------------------------------------------
-    // Pipeline for the 5-cycle multiplication
-    // For demonstration, we’ll just do A_in*B_in in stage1,
-    // then pass it through M2..M5. In a real design, you'd do partial products.
-    //-------------------------------------------------------------------------
 
     // Stage M1
     always_ff @(posedge clock or posedge reset) begin

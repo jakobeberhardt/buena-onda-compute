@@ -45,7 +45,6 @@ typedef struct packed {
     logic [6:0]  opcode;
     logic [4:0]  rd;
     logic [2:0]  funct3;
-    logic [2:0]  excpt_out;
 } ex_mem_bus_t;
 
 typedef struct packed {
@@ -109,17 +108,19 @@ typedef struct packed {               // Changed to packed
 } mem_data_type;
 
 // Each entry in the SB
-  typedef struct packed {
-    logic        valid;
-    logic [31:0] addr;
-    logic [31:0] data;
-  } sb_entry_t;
+typedef struct packed {
+  logic        valid;
+  logic [31:0] addr;
+  logic [31:0] data;
+  logic [3:0]  wstrb;   // Write strobe
+} sb_entry_t;
+
 
 
 //stage NOPS
 id_ex_bus_t id_ex_nop = '{32'h0, 32'h0, 32'h0, 32'h0, 7'b0, 5'b0, 5'b0, 5'b0, 3'b0, 7'b0, 32'h0};
-ex_mem_bus_t ex_mem_nop = '{32'h0, 32'h0, 32'h0, 7'b0, 5'b0, 3'b0, 3'b0};
-ex_mem_bus_t ex_mem_nop_xcpt = '{32'h0, 32'h0, 32'h0, 7'b0, 5'b0, 3'b0, INVALID_ADDR};
+ex_mem_bus_t ex_mem_nop = '{32'h0, 32'h0, 32'h0, 7'b0, 5'b0, 3'b0};
+ex_mem_bus_t ex_mem_nop_xcpt = '{32'h0, 32'h0, 32'h0, 7'b0, 5'b0, 3'b0};
 mem_wb_bus_t mem_wb_nop = '{32'h0, 32'h0, 7'b0, 5'b0};
 if_id_bus_t if_id_nop = '{32'h0, 7'b0, 5'b0, 5'b0};
 

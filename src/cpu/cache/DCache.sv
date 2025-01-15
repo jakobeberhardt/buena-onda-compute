@@ -28,7 +28,6 @@ module dm_cache_data (
       end
     end else if (data_req.we) begin
       data_mem[data_req.index] <= data_write;
-      //$display("Writing to data_mem[%0d] = %0p", data_req.index, data_write);
     end
   end
 

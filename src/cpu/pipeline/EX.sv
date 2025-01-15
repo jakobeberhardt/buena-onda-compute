@@ -25,8 +25,7 @@ module EX(
 
 
 
-    // Bypass signals would come from BypassUnit - assume we have them wired in top-level
-    // For completeness, we show how they'd be connected at top level. Here, assume inputs:
+
     logic [31:0] Ain, Bin;
     logic [31:0] BValue; // Value to get bypassed for SW
     
@@ -123,12 +122,6 @@ module EX(
             EXMEMALUOut = singleCycleALUResult;
     end
 
-
-    //assign stall_mul = mul_stall_out;
-
-
-
-    
     
 
     assign ex_mem_bus_out.instruction = id_ex_bus_in.instruction;
@@ -148,7 +141,6 @@ module EX(
         if (`DEBUG) begin
             $display("EX After ALU: EXMEMALUOut = %h", EXMEMALUOut);
             //display if mul
-
             $display("Time %0t, Is mul %0d,EX MUL: result = %h, valid = %0d, stall = %0d",$time, isMUL, mul_result, mul_valid_out, stall_mul);
         end
     end
